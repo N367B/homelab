@@ -1,7 +1,9 @@
 # IP Address Plan
 
 Overall Network: 10.0.0.0/8
+
 Public IPv4: REDACTED-PUBLIC-IP
+
 Public IPv6: 2a01:cb08:80dd:2300:2ef2:a5ff:fe1e:3d90 (/48)
 
 ---
@@ -11,7 +13,9 @@ Public IPv6: 2a01:cb08:80dd:2300:2ef2:a5ff:fe1e:3d90 (/48)
 ### Core Infrastructure
 
 Subnet: 10.0.0.0/16
+
 Subnet Mask: 255.255.0.0
+
 IP Range: 10.0.0.1 to 10.0.255.254
 
 Allocations:
@@ -23,7 +27,9 @@ Allocations:
 ### Homelab
 
 Subnet: 10.10.0.0/16
+
 Subnet Mask: 255.255.0.0
+
 IP Range: 10.10.0.1 to 10.10.255.254
 
 Allocations:
@@ -35,7 +41,9 @@ Allocations:
 ### IoT
 
 Subnet: 10.20.0.0/16
+
 Subnet Mask: 255.255.0.0
+
 IP Range: 10.20.0.1 to 10.20.255.254
 
 Allocations:
@@ -46,8 +54,20 @@ Allocations:
 ### DHCP Pool
 
 Subnet: 10.32.0.0/12
+
 Subnet Mask: 255.240.0.0
+
 IP Range: 10.32.0.1 to 10.47.255.254
+
+## Software / configuration
+
+For now everything done via livebox but this is limiting.
+
+The goal is to have a adguard home doing DHCP/DNS
+
+And for IPV6 blocking the livebox IPv6 RAs at a switch level to have more control with server RAs (custom DNS)
+
+Wake on LAN needs to be done
 
 ---
 

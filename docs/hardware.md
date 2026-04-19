@@ -74,6 +74,7 @@ Storage Configuration (Server 1):
   - 2 sticks support XMP/EXPO, 2 do not Currently optimized at ~5600MHz (CL36-38-38-78) Room for further optimization/testing
 - Power Supply: MSI MPG A850G PCIE5 (850W)
 - Case: Fractal Design Pop XL Air
+- NIC X520-DA1 SFP+
 
 ### Storage
 
@@ -100,6 +101,6 @@ Storage Configuration (Server 1):
 - Microphone: TONOR TC30
 - Headphones/IEMs: 7Hz Salnotes Zero 2 IEM (plus other occasional pairs)
 
->>> Additional cables, adapters, and various unlisted accessories are present in the lab ecosystem
-
 </details>
+
+>>> Additional cables, adapters, and various unlisted accessories are present in the lab ecosystem
