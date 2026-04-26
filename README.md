@@ -2,7 +2,7 @@
 
 This repository is (will be) the single source of truth for my dual-node home datacenter. It aims to contain the complete Infrastructure as Code configuration, managing everything from hypervisor provisioning and operating system state to the deployment of internal services and reverse proxies.
 
-> Status: Planning phase. Nothing is built yet — hardware is still waiting for an NVMe drive to arrive. Everything in this repo is a working draft. Directions and preferences are noted, but no choice is final. Expect things to change.
+> Status: Planning phase. Hardware is on hand, nothing is built yet. Everything in this repo is a working draft. Directions and preferences are noted, but no choice is final. Expect things to change.
 
 ## Philosophy & Goals
 
@@ -28,22 +28,25 @@ The infrastructure is split across two physical nodes to balance always-on avail
 This is the current thinking, not a final decision. Some slots have a clear preference, others are still wide open. A `?` means actively unsure.
 
 - Infrastructure Automation:
-  - Ansible: OS-level configuration (preferred for now)
-  - OpenTofu: Declarative management of Incus system containers (preferred for now)
+  - Ansible: OS-level configuration. Interactive runs from the admin workstation (gaming PC / laptop); scheduled `--check` drift detection from a small controller container on the edge node
+  - OpenTofu: declarative management of Incus system containers
+  - Renovate: automated dependency PRs (Docker image tags in compose, OpenTofu providers, Ansible collections, GitHub Actions)
 
 - Virtualization & Containment:
-  - Incus: system containers / VMs on the compute node (preferred)
-  - Docker: application containers inside Incus workspaces (preferred)
+  - Incus: system containers / VMs on the compute node
+  - Docker: application containers inside Incus workspaces
 
 - Storage Subsystem:
-  - ZFS: data pools — RAIDZ2 for bulk, mirror for fast (preferred)
-  - BTRFS ?: candidate for OS root with snapshot rollback — not decided
-  - Base OS also undecided (Debian, NixOS, Fedora, Talos, Flatcar, IncusOS, ...)
+  - ZFS: data pools — RAIDZ2 for bulk, mirror for fast
+  - BTRFS: OS root with subvolumes + snapper + grub-btrfs for rollback (mdadm RAID1 underneath on Server 1)
+  - Base OS: Debian 13 (Trixie) on both nodes
+
+- Secrets Management:
+  - SOPS + age: file-based, encrypted at rest in git, decrypted at deploy time. Master age key in Proton Pass + offline paper backup.
 
 - Routing & Security:
-  - Caddy ?: ingress / TLS — likely but not locked in
-  - caddy-docker-proxy ?: dynamic internal routing — idem
-  - Authentik ?: SSO / OIDC — considering alternatives (Pocket-ID, Zitadel, ...)
+  - Caddy: edge reverse proxy / TLS termination
+  - Authentik: identity provider, OIDC, and forward-auth for services that need proxy-side auth
 
 - Data Protection:
   - Restic ?: backups — strong candidate
@@ -51,11 +54,8 @@ This is the current thinking, not a final decision. Some slots have a clear pref
   - Cloud target undecided (Backblaze B2, Cloudflare R2, ...)
 
 - Still TBD (no preference yet):
-  - Secrets management (see `docs/secrets.md`)
   - Monitoring / alerting
   - Log aggregation
-  - Update / image-pin strategy
-  - Internal DNS / split-horizon scheme
 
 ## Repository Structure
 

@@ -2,12 +2,21 @@
 
 ## Server 1 (Compute - HP ML350 Gen9)
 
-### OS Boot Drive (mdadm RAID1 Mirror)
+### OS Boot Drive (mdadm RAID1 + BTRFS)
 
 - Drives: 2 x 240GB Samsung PM863A SATA SSDs
-- File System: ext4 or BTRFS --- CAN BE CHANGED (ZFS ? LVM ? XFS ?)
-- Mount Point: `/`
-- Purpose: Host OS Debian, Incus binaries --- CAN BE CHANGED (Proxmox, NixOS, Fedora, Talos, Flatcar Container, IncusOS, ...)
+- Layout: identical partitions on both drives
+  - `sdX1`  1 GiB  ESP (FAT32) — not mirrored, GRUB installed to both ESPs so either disk can boot solo
+  - `sdX2`  rest    Linux RAID member → assembled as `/dev/md0` (mdadm RAID1, metadata 1.2)
+- File System: BTRFS on `/dev/md0` with subvolumes
+  - `@`          → `/`
+  - `@home`      → `/home`
+  - `@var`       → `/var`
+  - `@log`       → `/var/log` (excluded from snapshots)
+  - `@snapshots` → `/.snapshots`
+- Snapshots: `snapper` with apt pre/post hooks; `grub-btrfs` exposes snapshots in the boot menu so a bad upgrade can be rolled back in one reboot
+- Swap: zram (compressed RAM swap) — no on-disk swap
+- Purpose: Host OS Debian 13, Incus binaries
 
 ### Pool 1: "fast" (ZFS Mirror)
 
@@ -30,10 +39,14 @@
 
 ### OS & App Drive
 
-- Drive: 1 x 512GB SSD
-- File System: BTRFS --- CAN BE CHANGED (ZFS ? LVM ? XFS ?)
+- Drive: 1 x 512GB Samsung PM9A1 NVMe
+- Layout:
+  - `nvme0n1p1`  1 GiB   ESP (FAT32)
+  - `nvme0n1p2`  rest    BTRFS, same subvolume layout as Server 1 (no RAID, single drive)
+- Snapshots: `snapper` + `grub-btrfs` (same model as Server 1)
+- Swap: zram
 - Mount Point: `/`
-- Purpose: Host OS Debian, baremetal Docker containers --- CAN BE CHANGED (Proxmox, NixOS, Fedora, Talos, Flatcar Container, IncusOS, ...))
+- Purpose: Host OS Debian 13, baremetal Docker containers (Caddy, Authentik, AdGuard, ...)
 
 ---
 

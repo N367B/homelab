@@ -1,0 +1,46 @@
+{
+    email {{ acme_email }}
+}
+
+(tls_cloudflare) {
+    tls {
+        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+    }
+}
+
+(private_only) {
+    @not_private not remote_ip private_ranges
+    respond @not_private 403
+}
+
+# Public service.
+app.{{ homelab_domain }} {
+    import tls_cloudflare
+    reverse_proxy 10.10.10.10:2283
+}
+
+# Private service.
+admin.{{ homelab_domain }} {
+    import tls_cloudflare
+    import private_only
+    reverse_proxy 10.0.0.10:5001
+}
+
+# Optional per-service forward-auth shape with Authentik.
+protected.{{ homelab_domain }} {
+    import tls_cloudflare
+
+    # forward_auth http://authentik:9000 {
+    #     uri /outpost.goauthentik.io/auth/caddy
+    #     copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name
+    # }
+
+    reverse_proxy 10.10.10.10:8080
+}
+
+# Wildcard certificate shape, only if deliberately wanted.
+# This would also need explicit host matchers/routes inside the block.
+#
+# *.{{ homelab_domain }} {
+#     import tls_cloudflare
+# }

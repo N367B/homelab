@@ -21,7 +21,6 @@ These services run on the main compute node and mount the bulk ZFS pool.
 
 Service Name | Internal Port | External Domain | Auth Provider | Notes
 --- | --- | --- | --- | ---
-caddy-docker-proxy | 80 | - | - | Dynamic internal router
 Jellyfin | 8096 | media.{{ homelab_domain }} | Native + SSO | Hardware transcoding via RTX 3060
 Sonarr | 8989 | tv.{{ homelab_domain }} | Authentik | 
 Radarr | 7878 | movies.{{ homelab_domain }} | Authentik | 

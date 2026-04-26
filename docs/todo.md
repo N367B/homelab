@@ -2,13 +2,14 @@
 
 Running list of everything still to decide, design, or build. Ordered roughly from "blocks other decisions" to "nice to have later". Not a strict plan — just a map.
 
-## 0. Before hardware arrives (thinking only)
+## 0. Foundational decisions — DONE
 
-- [ ] Pick base OS for both nodes (Debian / NixOS / Fedora / Talos / Flatcar / IncusOS / ...)
-- [ ] Pick root filesystem strategy (BTRFS + snapper? ZFS root? mdadm + ext4?)
-- [ ] Decide: public vs private git repo (drives secrets strategy)
-- [ ] Pick secrets management approach (SOPS+age / ansible-vault / Vault / Infisical / hybrid / ...)
-- [ ] Confirm Incus + OpenTofu + Ansible + Docker as the automation stack
+- [x] Base OS: Debian 13 (Trixie) on both nodes
+- [x] Root filesystem: BTRFS subvolumes on mdadm RAID1 (Server 1) / single drive (Server 2), with snapper + grub-btrfs
+- [x] Repo visibility: public (treated as already-public during the build)
+- [x] Secrets: SOPS + age, master key in Proton Pass + offline paper backup
+- [x] IaC stack: Incus + OpenTofu + Ansible + Docker, plus Renovate for dependency PRs
+- [x] Ansible runner: interactive runs from admin workstation; scheduled `--check` drift detection from a controller container on the edge node
 
 ## 1. Day 0 bootstrap
 
@@ -34,15 +35,16 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 - [ ] Decide how to block Livebox IPv6 RAs (switch-level filter? bridge config?)
 - [ ] Run own IPv6 RA from edge node with custom DNS
 - [ ] Wake-on-LAN: BIOS + OS + edge-side trigger (magic packet from AdGuard/edge)
-- [ ] Internal DNS / split-horizon: how does `*.{{ homelab_domain }}` resolve inside vs outside?
+- [x] Internal DNS / split-horizon: public DNS resolves home public IP, AdGuard resolves `*.{{ homelab_domain }}` to edge internally
 - [ ] Remote access: WireGuard? Tailscale? Both?
 - [ ] Firewall scheme (host-level nftables? edge gateway? per-VLAN rules?)
 
 ## 4. Identity, routing, TLS
 
-- [ ] Confirm or replace Caddy (vs Traefik) + caddy-docker-proxy
-- [ ] Confirm or replace Authentik (vs Pocket-ID / Zitadel / Keycloak)
-- [ ] TLS strategy: public Let's Encrypt for external, internal CA for private? Or wildcard via DNS-01?
+- [x] Reverse proxy: Caddy on edge
+- [x] Routing config source: Caddyfile in Git
+- [x] Identity provider: Authentik
+- [x] TLS strategy: Let's Encrypt DNS-01 via Cloudflare; per-host certs by default, wildcard optional
 - [ ] Which services are exposed to the internet vs LAN/VPN only (Jellyfin: reconsider public exposure)
 - [ ] OIDC integration plan per app (native + SSO vs proxy auth)
 
@@ -74,7 +76,7 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 
 ## 8. Operations
 
-- [ ] Update strategy (Renovate for image pins in the repo? manual? scheduled?)
+- [x] Update strategy: Renovate (Docker image tags in compose, OpenTofu providers, Ansible collections, GitHub Actions)
 - [ ] No Watchtower — confirm alternative cadence
 - [ ] UPS integration: NUT on edge, graceful shutdown script for compute (<30% battery)
 - [ ] Night shutdown / wake schedule for Server 1 (cron? scripted? manual?)

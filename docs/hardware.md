@@ -34,7 +34,7 @@ Storage Configuration (Server 1):
 - Role: Critical services (DHCP / DNS / IPv6 RA / OIDC / VPN / etc.)
 - CPU: AMD Ryzen 7 7730U
 - RAM: 32GB DDR4
-- Storage: 512GB SSD SATA (to be upgraded to NVMe with 512GB Samsung PM9A1)
+- Storage: 512GB Samsung PM9A1 NVMe
 - Networking: 1 x 2.5G NIC + 1 x 1G NIC RJ45
 
 ### Power Backup (UPS)
