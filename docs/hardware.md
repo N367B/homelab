@@ -37,6 +37,19 @@ Storage Configuration (Server 1):
 - Storage: 512GB Samsung PM9A1 NVMe
 - Networking: 1 x 2.5G NIC + 1 x 1G NIC RJ45
 
+### Cloud / Hosted Infrastructure
+
+- PulseHeberg VPS: Nova G2
+  - Hardware: 2 vCPU, 2GB RAM, 30GB SSD (RAID 10)
+  - IPv4: {{ vps_ipv4 }}
+  - IPv6: {{ vps_ipv6 }}
+  - Reverse DNS (PTR): {{ secondary_domain }}
+  - Capabilities: snapshots and arbitrary OS/software installs
+  - Billing: 30.00 EUR annually
+  - Renewal Date: 2027-05-22
+- Infomaniak Web Hosting (Student)
+  - Capabilities: Apache/PHP, MariaDB, Node.js, WordPress, and other managed web hosting options
+
 ### Power Backup (UPS)
 
 - Model: HPE T1500 G5 INTL Tower UPS (brand new batteries)

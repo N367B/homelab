@@ -1,0 +1,8 @@
+# Local AI assistant workspace/config files
+.codex
+.codex/
+.claude/
+.opencode/
+.cursor/
+.continue/
+.aider*
