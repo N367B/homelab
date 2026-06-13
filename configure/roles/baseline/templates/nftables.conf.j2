@@ -1,0 +1,35 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+# Keep homelab rules in their own table. Do not flush the whole ruleset:
+# Docker owns separate firewall tables for bridge networks and published ports.
+destroy table inet homelab_filter
+
+table inet homelab_filter {
+    chain input {
+        type filter hook input priority filter; policy drop;
+
+        iif "lo" accept
+        ct state established,related accept
+        ct state invalid drop
+
+        ip protocol icmp accept
+        meta l4proto ipv6-icmp accept
+
+{% for port in firewall_open_tcp %}
+        tcp dport {{ port }} accept
+{% endfor %}
+{% for port in firewall_open_udp %}
+        udp dport {{ port }} accept
+{% endfor %}
+    }
+
+    chain forward {
+        # Docker manages its own bridge/forwarding firewall rules;
+        # keep policy accept here to not fight it. Revisit with VLANs.
+        type filter hook forward priority filter; policy accept;
+    }
+
+    chain output {
+        type filter hook output priority filter; policy accept;
+    }
+}

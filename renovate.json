@@ -1,0 +1,14 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": ["config:recommended"],
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "Update SOPS version used by Ansible",
+      "managerFilePatterns": ["/^configure/group_vars/all\\.yml$/"],
+      "matchStrings": [
+        "# renovate: datasource=(?<datasource>\\S+) depName=(?<depName>\\S+)\\nsops_version:\\s*(?<currentValue>\\S+)"
+      ]
+    }
+  ]
+}

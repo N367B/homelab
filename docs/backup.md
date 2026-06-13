@@ -6,7 +6,7 @@ This document outlines the data protection policies, target locations, and autom
 
 - Primary Storage (Local 1): ZFS pools (`fast` and `bulk`) on Server 1 (HP ML350 Gen9) and some on Server 2 (AM06 Pro)
 - Secondary Storage (Local 2): Dedicated external USB HDD directly attached to Server 1 >> I DO NOT HAVE THIS YET (HOW MUCH ETC IDK)
-- Offsite Storage (Cloud): Encrypted object storage bucket (Provider TBD: e.g., Backblaze B2, Cloudflare R2), TO DECIDE
+- Offsite Storage (Cloud): Encrypted object storage bucket. Tool and provider both undecided and deferred until the core lab runs — candidates include Restic/Kopia/Borg/Duplicacy for the tool and Backblaze B2 / Cloudflare R2 / Scaleway / Hetzner / AWS for the target. Choose once Tier 1/2 sizes and monthly cost are known.
 
 ## Data Classification & Policies
 
@@ -23,6 +23,7 @@ Definition: Irreplaceable data with a small footprint. If the servers burn down,
   - Critical documents
   - Archives
   - Database dumps
+  - Authentik database dump + secrets (edge node) — the edge must stay rebuildable from git + this dump alone
   - an others probably :)
 - Policy (Full 3-2-1):
   - Nightly automated backup
@@ -56,6 +57,14 @@ Definition: Massive datasets that can be reacquired from the internet
 - Policy (Zero Backup):
   - Protected solely by the ZFS RAIDZ2 array parity (survives two simultaneous drive failures)
   - Excluded from all local and cloud backup routines to save space and compute overhead
+
+## Backup Window vs. Night Shutdown
+
+Server 1 powers down at night, so "nightly" backups cannot literally run overnight on it.
+
+- Server 1 backup window: in the evening, as the last scheduled job before the nightly shutdown.
+- Fallback: if the evening run was missed, the edge node can WoL-wake Server 1, run the backup, then shut it back down.
+- Server 2 (edge) is 24/7, so its small Tier 1 backup (configs, Authentik dump) can run overnight as usual.
 
 ## Cloud Synchronization (Rclone)
 

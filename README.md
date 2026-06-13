@@ -38,7 +38,7 @@ This is the current thinking, not a final decision. Some slots have a clear pref
 
 - Storage Subsystem:
   - ZFS: data pools — RAIDZ2 for bulk, mirror for fast
-  - BTRFS: OS root with subvolumes + snapper + grub-btrfs for rollback (mdadm RAID1 underneath on Server 1)
+  - BTRFS: OS root with subvolumes + snapper for host snapshots; grub-btrfs boot entries are planned once the upstream install task exists (native BTRFS RAID1 on Server 1 for checksum self-healing)
   - Base OS: Debian 13 (Trixie) on both nodes
 
 - Secrets Management:
@@ -48,12 +48,11 @@ This is the current thinking, not a final decision. Some slots have a clear pref
   - Caddy: edge reverse proxy / TLS termination
   - Authentik: identity provider, OIDC, and forward-auth for services that need proxy-side auth
 
-- Data Protection:
-  - Restic ?: backups — strong candidate
-  - Rclone ?: cloud sync — strong candidate
-  - Cloud target undecided (Backblaze B2, Cloudflare R2, ...)
+- Remote Access:
+  - WireGuard on the edge node (PulseHeberg VPS as rendezvous fallback)
 
 - Still TBD (no preference yet):
+  - Data protection: backup tool (Restic / Kopia / Borg / Duplicacy / ...) and offsite target (B2 / R2 / Scaleway / Hetzner / ...) — deferred, added after the core lab runs
   - Monitoring / alerting
   - Log aggregation
 
@@ -61,19 +60,23 @@ This is the current thinking, not a final decision. Some slots have a clear pref
 
 ### docs/
 
-Contains docs files
+Architecture, decisions, and open questions (start with `todo.md`)
 
 ### provision/
 
-Contains OpenTofu files
+OpenTofu — Incus containers/VMs on the compute node (empty until Server 1 build)
 
 ### configure/
 
-Contains Ansible files
+Ansible — OS baseline + per-node roles (`site.yml` is the entry point)
 
 ### apps/
 
-Contains apps (Docker compose) files
+Docker Compose stacks, one directory per stack, grouped by node
+
+### secrets/
+
+SOPS-encrypted secrets (age) — see `.sops.yaml` at the repo root
 
 ---
 

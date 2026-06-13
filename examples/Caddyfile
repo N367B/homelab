@@ -4,7 +4,7 @@
 
 (tls_cloudflare) {
     tls {
-        dns cloudflare {env.CLOUDFLARE_API_TOKEN}
+        dns cloudflare {env.CF_API_TOKEN}
     }
 }
 
@@ -30,9 +30,16 @@ admin.{{ homelab_domain }} {
 protected.{{ homelab_domain }} {
     import tls_cloudflare
 
-    # forward_auth http://authentik:9000 {
-    #     uri /outpost.goauthentik.io/auth/caddy
-    #     copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Email X-Authentik-Name
+    # route {
+    #     reverse_proxy /outpost.goauthentik.io/* http://authentik:9000
+    #
+    #     forward_auth http://authentik:9000 {
+    #         uri /outpost.goauthentik.io/auth/caddy
+    #         copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Entitlements X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+    #         trusted_proxies private_ranges
+    #     }
+    #
+    #     reverse_proxy 10.10.10.10:8080
     # }
 
     reverse_proxy 10.10.10.10:8080

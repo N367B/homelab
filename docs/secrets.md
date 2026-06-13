@@ -7,10 +7,10 @@
 Roughly anything that should never land in git in plaintext:
 
 - SSH private keys, root passwords, sudo passwords
-- API tokens (cloud provider, DNS, Restic repo password, registry auth, ...)
+- API tokens (cloud provider, DNS, backup repo password, registry auth, ...)
 - App environment variables (database passwords, OIDC client secrets, SMTP creds, VPN credentials, ...)
 - TLS certificates / private keys (if not fully managed by Caddy)
-- Backup encryption keys (Restic repo key, age keys, ...)
+- Backup encryption keys (backup repo key, age keys, ...)
 - Authentik signing keys, session secrets, ...
 - Wake-on-LAN / iLO credentials
 

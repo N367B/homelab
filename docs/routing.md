@@ -33,6 +33,16 @@ Internal flow:
 
 Caddy does not need a catch-all `*.{{ homelab_domain }}` site block. Routing should be explicit per service.
 
+External `80/443` are forwarded as TCP only. HTTP/3 (UDP 443) is not exposed externally; clients fall back to HTTP/2 over TCP. Forward UDP 443 on the Livebox later only if external HTTP/3 is wanted.
+
+## How Caddy Reaches Upstreams
+
+Each app stack is its own Docker Compose project with its own network, so Caddy cannot resolve another stack's service name by default. Two cases on the edge node:
+
+- Host-networked services (AdGuard) are reached by host IP, e.g. `reverse_proxy 10.0.0.10:3000`.
+- Bridged services on the same node (Authentik, Dockge, ...) must share an external Docker network with Caddy so it can resolve them by container name (`reverse_proxy authentik:9000`). Create it once (`docker network create edge`), then both the Caddy stack and each bridged stack join it. To set up when the first bridged service lands.
+- Services on the compute node are reached by routed IP (`10.10.40.x:port`).
+
 ## TLS Strategy
 
 Use Let's Encrypt DNS-01 through Cloudflare.

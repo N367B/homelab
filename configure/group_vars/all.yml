@@ -1,0 +1,26 @@
+---
+admin_user: noe
+timezone: Europe/Paris
+
+# Base packages present on every node
+baseline_packages:
+  - btrfs-progs
+  - chrony
+  - curl
+  - git
+  - htop
+  - nftables
+  - python3
+  - python3-debian
+  - snapper
+  - sudo
+  - unattended-upgrades
+  - zram-tools
+  - age
+# sops and grub-btrfs come from upstream releases (baseline role), not apt
+# renovate: datasource=github-releases depName=getsops/sops
+sops_version: v3.13.1
+
+# Firewall: every node accepts SSH; groups extend these lists
+firewall_open_tcp: [22]
+firewall_open_udp: []

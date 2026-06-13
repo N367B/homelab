@@ -1,0 +1,22 @@
+# SOPS configuration — which keys encrypt which files.
+#
+# One-time setup (admin workstation):
+#   age-keygen -o ~/.config/sops/age/keys.txt
+#   -> put the public key (age1...) below
+#   -> store the private key in Proton Pass + offline paper backup
+#
+# Day-to-day:
+#   sops edit secrets/<scope>.sops.yaml
+
+keys:
+  - &admin age1rtp96zhxs6dwnx5c0xqanf2aamfkgmkntdakn95z3efglcyvhdvs0zzsn4
+
+creation_rules:
+  - path_regex: secrets/.*\.sops\.(yaml|yml|json|env)$
+    key_groups:
+      - age:
+          - *admin
+  - path_regex: .*\.sops\.(yaml|yml|json|env)$
+    key_groups:
+      - age:
+          - *admin

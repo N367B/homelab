@@ -1,0 +1,24 @@
+---
+# Full lab convergence. Run interactively from the admin workstation:
+#   ansible-playbook site.yml
+# Drift detection (scheduled from the edge controller container):
+#   ansible-playbook site.yml --check --diff
+
+- name: Baseline for all nodes
+  hosts: all
+  become: true
+  roles:
+    - baseline
+
+- name: Edge node — Docker host for core services
+  hosts: edge_nodes
+  become: true
+  roles:
+    - docker_host
+
+- name: Compute node — Docker + Incus (Incus role TBD)
+  hosts: compute_nodes
+  become: true
+  roles:
+    - docker_host
+    # - incus_host  # TODO: when Server 1 build starts

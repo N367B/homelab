@@ -34,7 +34,7 @@ Storage Configuration (Server 1):
 - Role: Critical services (DHCP / DNS / IPv6 RA / OIDC / VPN / etc.)
 - CPU: AMD Ryzen 7 7730U
 - RAM: 32GB DDR4
-- Storage: 512GB Samsung PM9A1 NVMe
+- Storage: 512GB Samsung PM9A1 NVMe (with heatsink)
 - Networking: 1 x 2.5G NIC + 1 x 1G NIC RJ45
 
 ### Cloud / Hosted Infrastructure
@@ -47,6 +47,7 @@ Storage Configuration (Server 1):
   - Capabilities: snapshots and arbitrary OS/software installs
   - Billing: 30.00 EUR annually
   - Renewal Date: 2027-05-22
+  - Planned use: external uptime monitoring of the edge (e.g. Uptime Kuma), WireGuard rendezvous fallback when the home IP changes, secondary DNS candidate
 - Infomaniak Web Hosting (Student)
   - Capabilities: Apache/PHP, MariaDB, Node.js, WordPress, and other managed web hosting options
 

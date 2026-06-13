@@ -6,3 +6,16 @@
 .cursor/
 .continue/
 .aider*
+
+# Secrets hygiene — only SOPS-encrypted files may carry credentials
+.env
+*.env
+!*.sops.env
+keys.txt
+age.key
+*.agekey
+
+# OpenTofu local state/caches (state should never hold plaintext in git anyway)
+.terraform/
+*.tfstate
+*.tfstate.*

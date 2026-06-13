@@ -45,8 +45,8 @@ Domain | Provider | Purpose
 
 Public DNS target:
 
-- `{{ homelab_domain }}`
-- `*.{{ homelab_domain }}`
+- `{{ homelab_domain }}` — apex A record, kept current by DDNS.
+- `*.{{ homelab_domain }}` — static wildcard CNAME pointing at the apex, so per-service records follow the apex automatically and DDNS only has to manage one record.
 
 Cloudflare must stay DNS-only. No Cloudflare proxying.
 
@@ -54,11 +54,9 @@ Public records should point to the home connection. Because the public IP may be
 
 DDNS target:
 
-- Runs as a Docker Compose service.
-- Runs on the edge node once the edge node exists.
-- Updates Cloudflare records for `{{ homelab_domain }}`.
-- Specific DDNS image/tool is TBD.
-- Provider API credentials are stored through SOPS.
+- Runs as a Docker Compose service on the edge node (`apps/edge/ddns`).
+- Current pick: `favonia/cloudflare-ddns` (pinned), updates the `{{ homelab_domain }}` apex A record.
+- Cloudflare API token stored through SOPS.
 
 Internal DNS should use the same service names where possible. For example, `photos.{{ homelab_domain }}` should resolve internally to the LAN ingress address instead of forcing local clients out through public DNS and hairpin NAT.
 
@@ -99,7 +97,7 @@ Jellyfin | `jellyfin.{{ homelab_domain }}` | Public candidate
 Immich | `photos.{{ homelab_domain }}` | Public candidate
 Nextcloud | `cloud.{{ homelab_domain }}` | Public candidate
 
-Admin and infrastructure tools should default to internal-only or VPN-only.
+Admin and infrastructure tools (AdGuard, Dockge, the *arr stack, qBittorrent, Ollama API, ...) are internal-only / VPN-only. Their domains resolve via AdGuard split-horizon but get no public DNS record. See `services.md` for the per-service exposure table.
 
 Final exposure policy should eventually live close to the service definitions, so routing and documentation can be generated or checked from one source of truth.
 

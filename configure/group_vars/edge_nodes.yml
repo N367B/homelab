@@ -1,0 +1,6 @@
+---
+# DNS (53), DHCP (67/68), ingress (80/443 + 443/udp HTTP/3);
+# 3000 is AdGuard's web UI, reverse-proxied by Caddy.
+# Add 51820/udp when WireGuard lands.
+firewall_open_tcp: [22, 53, 80, 443, 3000]
+firewall_open_udp: [53, 67, 68, 443]
