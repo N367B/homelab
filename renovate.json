@@ -4,9 +4,14 @@
   "timezone": "Europe/Paris",
   "packageRules": [
     {
-      "description": "Batch non-major updates into one weekly PR; majors get their own PR for review",
+      "description": "Batch non-major updates into one weekly PR",
       "matchUpdateTypes": ["minor", "patch", "digest"],
       "groupName": "non-major updates"
+    },
+    {
+      "description": "Major updates: opt-in from the dependency dashboard, no PR until approved",
+      "matchUpdateTypes": ["major"],
+      "dependencyDashboardApproval": true
     }
   ],
   "customManagers": [
