@@ -1,0 +1,73 @@
+# Based on the official compose: https://docs.goauthentik.io/compose.yml
+# Modified: pinned tags, no host port publishing (Caddy reaches it on the shared
+# `edge` network), server aliased as `authentik`.
+services:
+  postgresql:
+    image: docker.io/library/postgres:16-alpine
+    restart: unless-stopped
+    env_file: [.env]
+    environment:
+      POSTGRES_DB: ${PG_DB:-authentik}
+      POSTGRES_PASSWORD: ${PG_PASS:?database password required}
+      POSTGRES_USER: ${PG_USER:-authentik}
+    healthcheck:
+      test: [CMD-SHELL, "pg_isready -d $${POSTGRES_DB} -U $${POSTGRES_USER}"]
+      interval: 30s
+      timeout: 5s
+      retries: 5
+      start_period: 20s
+    volumes:
+      - database:/var/lib/postgresql/data
+
+  server:
+    image: ghcr.io/goauthentik/server:2026.5.3
+    command: server
+    restart: unless-stopped
+    shm_size: 512mb
+    env_file: [.env]
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+    volumes:
+      - ./data:/data
+      - ./custom-templates:/templates
+    depends_on:
+      postgresql:
+        condition: service_healthy
+    networks:
+      default: {}
+      edge:
+        aliases: [authentik]
+
+  worker:
+    image: ghcr.io/goauthentik/server:2026.5.3
+    command: worker
+    restart: unless-stopped
+    shm_size: 512mb
+    user: root
+    env_file: [.env]
+    environment:
+      AUTHENTIK_POSTGRESQL__HOST: postgresql
+      AUTHENTIK_POSTGRESQL__NAME: ${PG_DB:-authentik}
+      AUTHENTIK_POSTGRESQL__USER: ${PG_USER:-authentik}
+      AUTHENTIK_POSTGRESQL__PASSWORD: ${PG_PASS}
+      AUTHENTIK_SECRET_KEY: ${AUTHENTIK_SECRET_KEY:?secret key required}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./data:/data
+      - ./certs:/certs
+      - ./custom-templates:/templates
+    depends_on:
+      postgresql:
+        condition: service_healthy
+
+volumes:
+  database:
+    driver: local
+
+networks:
+  edge:
+    external: true

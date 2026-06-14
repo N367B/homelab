@@ -1,4 +1,10 @@
 ---
+- name: Ensure shared external networks
+  community.docker.docker_network:
+    name: "{{ item }}"
+    state: present
+  loop: "{{ compose_networks | default([]) }}"
+
 - name: Deploy compose stacks
   ansible.builtin.include_tasks: stack.yml
   loop: "{{ compose_stacks }}"

@@ -39,10 +39,10 @@ dns.{{ homelab_domain }} {
     reverse_proxy 10.0.0.10:3000
 }
 
-# auth.{{ homelab_domain }} {        # Public — Authentik, when deployed
-#     import tls_cloudflare
-#     reverse_proxy authentik:9000
-# }
+auth.{{ homelab_domain }} {
+    import tls_cloudflare
+    reverse_proxy authentik:9000
+}
 
 # edge.{{ homelab_domain }} {        # Internal — Dockge, when deployed
 #     import tls_cloudflare

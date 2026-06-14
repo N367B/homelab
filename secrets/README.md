@@ -26,4 +26,5 @@ Use from each layer:
 | `edge-caddy.sops.env` | `CF_API_TOKEN` for TLS DNS-01 (scopes: Zone.Zone:Read + Zone.DNS:Edit) |
 | `edge-ddns.sops.env` | `CLOUDFLARE_API_TOKEN` for DDNS (separate token, same scopes, revocable alone) |
 | `edge-adguard.sops.yaml` | `adguard_password_hash` — admin bcrypt hash injected into `AdGuardHome.yaml` at deploy |
+| `edge-authentik.sops.env` | `PG_PASS` + `AUTHENTIK_SECRET_KEY` for the Authentik stack |
 | `backup.sops.yaml` | backup repo password + cloud credentials (tool/provider undecided) |

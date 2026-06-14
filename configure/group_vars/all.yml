@@ -17,6 +17,9 @@ baseline_packages:
   - unattended-upgrades
   - zram-tools
   - age
+  - btop
+  - micro
+  - fzf
 # sops and grub-btrfs come from upstream releases (baseline role), not apt
 # renovate: datasource=github-releases depName=getsops/sops
 sops_version: v3.13.1

@@ -9,9 +9,12 @@ and are gitignored.
 | `edge/caddy` | edge | Ingress, TLS (DNS-01 via Cloudflare plugin, custom build) |
 | `edge/adguard` | edge | DNS + DHCP (host networking) |
 | `edge/ddns` | edge | Cloudflare dynamic DNS for the home IP |
+| `edge/authentik` | edge | Identity provider (OIDC + forward-auth); postgresql + server + worker |
 
-Planned next: `edge/authentik`, `edge/dockge`, then the compute stacks
-(see `docs/services.md`).
+Caddy and Authentik share the external `edge` Docker network (created by the
+role from `compose_networks`) so Caddy resolves `authentik:9000` by name.
+
+Planned next: `edge/dockge`, then the compute stacks (see `docs/services.md`).
 
 Configs follow each project's official documentation example, modified
 minimally — when touching a stack, re-check upstream docs first.
