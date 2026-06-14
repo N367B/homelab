@@ -14,6 +14,15 @@
     update_cache: true
     cache_valid_time: 3600
 
+- name: Passwordless sudo for the admin user
+  ansible.builtin.copy:
+    dest: "/etc/sudoers.d/{{ admin_user }}"
+    content: "{{ admin_user }} ALL=(ALL) NOPASSWD: ALL\n"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: visudo -cf %s
+
 - name: Install Renovate-managed sops binary
   ansible.builtin.get_url:
     url: "https://github.com/getsops/sops/releases/download/{{ sops_version }}/sops-{{ sops_version }}.linux.amd64"

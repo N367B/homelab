@@ -1,0 +1,66 @@
+---
+- name: "{{ stack.name }}: stack directory"
+  ansible.builtin.file:
+    path: "/opt/stacks/{{ stack.name }}"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0755"
+
+- name: "{{ stack.name }}: copy stack files"
+  ansible.builtin.copy:
+    src: "{{ playbook_dir }}/../apps/{{ stack.path }}/"
+    dest: "/opt/stacks/{{ stack.name }}/"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0644"
+    directory_mode: "0755"
+
+- name: "{{ stack.name }}: render secret env"
+  ansible.builtin.copy:
+    content: "{{ lookup('community.sops.sops', playbook_dir ~ '/../secrets/' ~ stack.secret, input_type='dotenv', output_type='dotenv') }}\n"
+    dest: "/opt/stacks/{{ stack.name }}/.env"
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0600"
+  no_log: true
+  when: stack.secret is defined
+
+- name: "{{ stack.name }}: load secret vars"
+  community.sops.load_vars:
+    file: "{{ playbook_dir }}/../secrets/{{ stack.secret_vars }}"
+  no_log: true
+  when: stack.secret_vars is defined
+
+- name: "{{ stack.name }}: config directory"
+  ansible.builtin.file:
+    path: "/opt/stacks/{{ stack.name }}/{{ stack.config_dest | dirname }}"
+    state: directory
+    owner: "{{ admin_user }}"
+    group: "{{ admin_user }}"
+    mode: "0755"
+  when: stack.config_template is defined
+
+- name: "{{ stack.name }}: render config from template"
+  ansible.builtin.template:
+    src: "{{ playbook_dir }}/../apps/{{ stack.path }}/{{ stack.config_template }}"
+    dest: "/opt/stacks/{{ stack.name }}/{{ stack.config_dest }}"
+    # The container rewrites this file as its own user; match that owner so the
+    # render stays idempotent instead of re-chowning every run.
+    owner: "{{ stack.config_owner | default('root') }}"
+    group: "{{ stack.config_owner | default('root') }}"
+    mode: "0600"
+  no_log: true
+  register: stack_config
+  when: stack.config_template is defined
+
+- name: "{{ stack.name }}: deploy"
+  community.docker.docker_compose_v2:
+    project_src: "/opt/stacks/{{ stack.name }}"
+    state: present
+
+- name: "{{ stack.name }}: restart on config change"
+  community.docker.docker_compose_v2:
+    project_src: "/opt/stacks/{{ stack.name }}"
+    state: restarted
+  when: (stack.config_template is defined) and (stack_config.changed | default(false))

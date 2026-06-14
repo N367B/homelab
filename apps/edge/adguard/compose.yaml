@@ -7,9 +7,8 @@ services:
     # Uses 53/tcp+udp (DNS), 67/68/udp (DHCP), 3000/tcp (web UI, proxied as dns.{{ homelab_domain }})
     network_mode: host
     volumes:
+      - ./conf:/opt/adguardhome/conf # AdGuardHome.yaml managed in git
       - adguard_work:/opt/adguardhome/work
-      - adguard_conf:/opt/adguardhome/conf
 
 volumes:
   adguard_work:
-  adguard_conf:

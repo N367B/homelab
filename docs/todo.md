@@ -37,6 +37,7 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 - [ ] Decide how to block Livebox IPv6 RAs (switch-level filter? bridge config?)
 - [ ] Run own IPv6 RA from edge node with custom DNS
 - [ ] Wake-on-LAN: BIOS + OS + edge-side trigger (magic packet from AdGuard/edge)
+- [ ] Ansible-manage the static interface config (set manually at Day 0 per `bootstrap.md`; move `/etc/network/interfaces.d/static` into the baseline role for reproducibility, carefully — rewriting it can drop the SSH connection)
 - [x] Internal DNS / split-horizon: public DNS resolves home public IP, AdGuard resolves `*.{{ homelab_domain }}` to edge internally
 - [x] Remote access: plain WireGuard on the edge node (no third-party dependency; Tailscale can be added later if it gets annoying)
 - [ ] Firewall scheme (host-level nftables? edge gateway? per-VLAN rules?)

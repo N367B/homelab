@@ -4,3 +4,19 @@
 # Add 51820/udp when WireGuard lands.
 firewall_open_tcp: [22, 53, 80, 443, 3000]
 firewall_open_udp: [53, 67, 68, 443]
+
+# Compose stacks deployed by the compose_stacks role. `secret` (optional) is a
+# file under secrets/, decrypted on the controller and rendered to the stack's
+# .env at deploy time — the age key never reaches the node.
+compose_stacks:
+  - name: caddy
+    path: edge/caddy
+    secret: edge-caddy.sops.env
+  - name: ddns
+    path: edge/ddns
+    secret: edge-ddns.sops.env
+  - name: adguard
+    path: edge/adguard
+    secret_vars: edge-adguard.sops.yaml
+    config_template: AdGuardHome.yaml.j2
+    config_dest: conf/AdGuardHome.yaml

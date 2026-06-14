@@ -1,0 +1,7 @@
+---
+- name: Deploy compose stacks
+  ansible.builtin.include_tasks: stack.yml
+  loop: "{{ compose_stacks }}"
+  loop_control:
+    loop_var: stack
+    label: "{{ stack.name }}"

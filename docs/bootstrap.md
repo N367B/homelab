@@ -38,12 +38,28 @@ Software selection: minimal install + `standard system utilities` + `SSH server`
 
 ### 3. First boot (root over console)
 
+The goal here is the bare minimum to let Ansible take over: a static IP, the few packages Ansible itself needs, an admin user, and the keys. Everything else (full package set, hardening, zram, sops, scrub, Docker, ...) is installed declaratively by Ansible.
+
 ```sh
 apt update && apt full-upgrade -y
-apt install -y sudo git python3 age chrony zram-tools snapper btrfs-progs
+apt install -y sudo python3 python3-apt
 ```
 
-Note: `sops` and `grub-btrfs` come from upstream releases because neither is packaged in Debian 13/Trixie. `sops` is installed by Ansible from the Renovate-managed GitHub release declared in `configure/group_vars/all.yml`; `grub-btrfs` still needs an explicit upstream install task before rollback boot entries are implemented. On the admin workstation, install `sops` from <https://github.com/getsops/sops/releases>.
+`sudo` (for Ansible `become`), `python3` (module interpreter) and `python3-apt` (the `apt` module) are the only packages Ansible needs to connect and bootstrap. The full baseline set — `git`, `chrony`, `zram-tools`, `snapper`, `btrfs-progs`, `nftables`, `age`, `unattended-upgrades`, ... — is in `configure/group_vars/all.yml` and installed by the baseline role. `sops` and `grub-btrfs` are not in Debian; `sops` is installed by Ansible from the Renovate-managed GitHub release, `grub-btrfs` still needs an upstream install task. On the admin workstation, install `sops` from <https://github.com/getsops/sops/releases>.
+
+#### Static IP
+
+The node defaults to DHCP; give it its fixed address so Ansible can reach it reliably (and because the edge will later run DHCP itself). Find the interface name with `ip -br a`, then write `/etc/network/interfaces.d/static`:
+
+```sh
+auto <iface>
+iface <iface> inet static
+    address 10.0.0.10/8
+    gateway 10.0.0.1
+    dns-nameservers 10.0.0.1
+```
+
+The mask is `/8`: the network is flat (no VLANs yet), so all nodes share one subnet and reach each other directly at L2. The `/16` ranges in `network.md` are future allocation conventions for when VLANs/routing exist, not the current mask. Address is per node — edge `10.0.0.10/8`, compute `10.10.10.10/8`, both with gateway `10.0.0.1`. Apply with `systemctl restart networking` (or reboot). Ansible can take over this file declaratively later.
 
 Convert the root filesystem to BTRFS native RAID1 (one-time, ~minutes on a fresh install):
 
@@ -55,14 +71,13 @@ btrfs filesystem usage /   # verify: Data,RAID1 / Metadata,RAID1 / System,RAID1
 
 > Degraded boot note: if one SSD dies later, the system will not mount root automatically. At the GRUB prompt, edit the kernel line and append `rootflags=degraded` to boot on the surviving disk, then replace the drive (`btrfs replace`). This is the accepted tradeoff for checksum self-healing — see `storage.md`.
 
-Create the admin user `noe`, add to `sudo`:
+The `noe` user is created by the Debian installer. If a root password was set during install, `noe` is not in the `sudo` group yet — add it (it already has its login password):
 
 ```sh
-adduser noe
 usermod -aG sudo noe
 ```
 
-Sudo policy: passwordless for `noe` (`echo 'noe ALL=(ALL) NOPASSWD: ALL' > /etc/sudoers.d/noe`). SSH is key-only and password auth is disabled by Ansible, so the account is only reachable with the private key; passwordless sudo keeps Ansible runs and the scheduled drift checks friction-free.
+Passwordless sudo is set up by the baseline role (`/etc/sudoers.d/noe`), not by hand. So the **first** Ansible run uses the password you just set: `ansible-playbook site.yml --limit edge -K` (`-K` prompts once for the sudo password). After that run, NOPASSWD is in place and `-K` is no longer needed. SSH is also key-only after the first converge (password auth disabled), so the account is only reachable with the private key.
 
 ### 4. Key injection (from admin workstation)
 

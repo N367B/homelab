@@ -64,6 +64,3 @@
     owner: "{{ admin_user }}"
     group: "{{ admin_user }}"
     mode: "0755"
-
-# TODO: deploy compose stacks from apps/ (git checkout or synchronize +
-# sops-rendered .env files), then `community.docker.docker_compose_v2`.

@@ -19,17 +19,34 @@ minimally — when touching a stack, re-check upstream docs first.
 Image tags use explicit Renovate-managed versions. Avoid `latest`: Renovate is
 the version update mechanism.
 
-## Edge first-deploy notes
+## Deploying
 
-1. Render each stack's `.env` from SOPS before `docker compose up -d`, e.g.
-   `sops decrypt secrets/edge-caddy.sops.env > apps/edge/caddy/.env`.
-2. Deploy order: `caddy` + `ddns` first (gives a real cert on `dns.{{ homelab_domain }}`),
-   then `adguard`.
-3. AdGuard runs host-networked, so during its setup wizard set the **admin web
-   UI to port 3000** — Caddy owns `80/443` on the host. The Caddyfile proxies
-   `dns.{{ homelab_domain }} → 10.0.0.10:3000`.
-4. AdGuard binds `:53`. Confirm nothing else holds it first
-   (`ss -lunp | grep :53`); on a minimal Debian install systemd-resolved is not
-   enabled, but if present, disable its stub listener.
-5. Bridged edge services added later (Authentik, Dockge) must join a shared
+Stacks are deployed by the `compose_stacks` Ansible role (driven by the
+`compose_stacks` list in `configure/group_vars/`), not by hand. For each stack
+it copies the files to `/opt/stacks/<name>/`, renders `.env` from the SOPS
+secret (decrypted on the controller — the age key never reaches the node), and
+runs `docker compose up`. So a deploy is just:
+
+```sh
+cd configure && ansible-playbook site.yml --limit edge
+```
+
+Caddy is built from its Dockerfile on first deploy (`build: policy`). After a
+Renovate bump to its base image, rebuild explicitly:
+`docker compose -f /opt/stacks/caddy/compose.yaml build` then re-run the play.
+
+### First-deploy notes
+
+1. **Caddy** provisions the `dns.{{ homelab_domain }}` cert via DNS-01 on startup — watch
+   `docker compose logs caddy` for issuance (the real test of the Cloudflare
+   token). It 502s until AdGuard is up; that is expected.
+2. **AdGuard** runs host-networked. The role starts the container, but the
+   first-run app config is a one-time manual step: browse to
+   `http://10.0.0.10:3000` and set the **admin web UI to port 3000** (Caddy owns
+   `80/443`). Confirm nothing else holds `:53` first (`ss -lunp | grep :53`); on
+   a minimal Debian install systemd-resolved is not enabled.
+3. Bridged edge services added later (Authentik, Dockge) must join a shared
    external network with Caddy — see `docs/routing.md`.
+
+Manual `sops decrypt … > .env && docker compose up -d` still works for
+one-off debugging, but the role is the source of truth.

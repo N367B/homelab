@@ -15,6 +15,7 @@
   become: true
   roles:
     - docker_host
+    - compose_stacks
 
 - name: Compute node — Docker + Incus (Incus role TBD)
   hosts: compute_nodes
