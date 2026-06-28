@@ -1,9 +1,9 @@
 ---
-# DNS (53), DHCP (67/68), ingress (80/443 + 443/udp HTTP/3);
+# DNS (53), DHCP (67/68), ingress (80/443); HTTP/3 disabled (see Caddyfile).
 # 3000 AdGuard UI, 8123 Home Assistant (both host-networked, reverse-proxied by Caddy).
 # Add 51820/udp when WireGuard lands.
 firewall_open_tcp: [22, 53, 80, 443, 3000, 8123]
-firewall_open_udp: [53, 67, 68, 443]
+firewall_open_udp: [53, 67, 68]
 
 # Edge resolves via the gateway + public fallback, NOT its own AdGuard: AdGuard's
 # *.{{ homelab_domain }} split-horizon rewrite would hijack Caddy/certmagic zone lookups and

@@ -8,7 +8,6 @@ services:
     ports:
       - "80:80"
       - "443:443"
-      - "443:443/udp" # HTTP/3
     environment:
       # Rendered at deploy time: sops decrypt secrets/edge-caddy.sops.env > .env
       # Token scopes: Zone.Zone:Read + Zone.DNS:Edit (per caddy-dns/cloudflare docs)

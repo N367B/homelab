@@ -1,5 +1,10 @@
 {
     email {{ acme_email }}
+    # HTTP/3 disabled: not forwarded externally, and QUIC on the LAN caused
+    # ERR_FAILED on some requests (e.g. the HA auth callback).
+    servers {
+        protocols h1 h2
+    }
 }
 
 # Official syntax: https://github.com/caddy-dns/cloudflare
