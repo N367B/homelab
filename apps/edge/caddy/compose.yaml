@@ -3,6 +3,8 @@ services:
     build: .
     container_name: caddy
     restart: unless-stopped
+    # --watch: auto-reload on Caddyfile changes (Ansible writes it atomically)
+    command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --watch
     ports:
       - "80:80"
       - "443:443"

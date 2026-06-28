@@ -23,6 +23,17 @@
     mode: "0440"
     validate: visudo -cf %s
 
+# Static resolv.conf (no dhcpcd/resolved/resolvconf here). Real nameservers are
+# required so Docker's embedded DNS can forward — without them, containers on
+# user-defined networks get SERVFAIL.
+- name: Configure DNS resolvers
+  ansible.builtin.template:
+    src: resolv.conf.j2
+    dest: /etc/resolv.conf
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Install Renovate-managed sops binary
   ansible.builtin.get_url:
     url: "https://github.com/getsops/sops/releases/download/{{ sops_version }}/sops-{{ sops_version }}.linux.amd64"

@@ -1,9 +1,14 @@
 ---
 # DNS (53), DHCP (67/68), ingress (80/443 + 443/udp HTTP/3);
-# 3000 is AdGuard's web UI, reverse-proxied by Caddy.
+# 3000 AdGuard UI, 8123 Home Assistant (both host-networked, reverse-proxied by Caddy).
 # Add 51820/udp when WireGuard lands.
-firewall_open_tcp: [22, 53, 80, 443, 3000]
+firewall_open_tcp: [22, 53, 80, 443, 3000, 8123]
 firewall_open_udp: [53, 67, 68, 443]
+
+# Edge resolves via the gateway + public fallback, NOT its own AdGuard: AdGuard's
+# *.{{ homelab_domain }} split-horizon rewrite would hijack Caddy/certmagic zone lookups and
+# break ACME. LAN/public IPs (not 127.0.0.1) so Docker embedded DNS can forward.
+dns_nameservers: [10.0.0.1, 1.1.1.1]
 
 # Shared external Docker networks created before stacks deploy, so bridged
 # services (Caddy <-> Authentik) can resolve each other by name.
@@ -28,3 +33,5 @@ compose_stacks:
   - name: authentik
     path: edge/authentik
     secret: edge-authentik.sops.env
+  - name: homeassistant
+    path: edge/homeassistant

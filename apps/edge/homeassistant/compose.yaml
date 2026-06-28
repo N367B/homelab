@@ -1,0 +1,18 @@
+# Based on the official example: https://www.home-assistant.io/installation/linux
+# Modified: pinned tag, TZ, bind-mounted ./config, Zigbee dongle passthrough.
+services:
+  homeassistant:
+    container_name: homeassistant
+    image: ghcr.io/home-assistant/home-assistant:2026.6.4
+    restart: unless-stopped
+    privileged: true
+    network_mode: host
+    environment:
+      TZ: Europe/Paris
+    volumes:
+      - ./config:/config
+      - /etc/localtime:/etc/localtime:ro
+      - /run/dbus:/run/dbus:ro
+    devices:
+      # Sonoff ZBDongle-E (EFR32MG21) for ZHA — stable by-id path
+      - /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_00331d3366a2ef11a9fd946661ce3355-if00-port0:/dev/ttyUSB0
