@@ -24,6 +24,8 @@ services:
     command: server
     restart: unless-stopped
     shm_size: 512mb
+    ports:
+      - "127.0.0.1:9000:9000"
     env_file: [.env]
     environment:
       AUTHENTIK_POSTGRESQL__HOST: postgresql
@@ -37,10 +39,6 @@ services:
     depends_on:
       postgresql:
         condition: service_healthy
-    networks:
-      default: {}
-      edge:
-        aliases: [authentik]
 
   worker:
     image: ghcr.io/goauthentik/server:2026.5.3
@@ -67,7 +65,3 @@ services:
 volumes:
   database:
     driver: local
-
-networks:
-  edge:
-    external: true

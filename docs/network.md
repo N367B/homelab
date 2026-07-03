@@ -35,6 +35,7 @@ IP / Range | Name | Role
 `10.10.40.0/24` | `apps` | Docker application endpoints / routed service IPs
 `10.20.1.10` | `shellyplug-1` | Power monitoring / control
 `10.20.1.11` | `shellyplug-2` | Power monitoring / control
+`10.99.0.0/24` | `vpn` | WireGuard remote access clients
 
 ## DNS and Domains
 
@@ -78,7 +79,7 @@ Target state:
 
 Public traffic enters through the edge node first.
 
-- Public `80/tcp` and `443/tcp` forward from Livebox to `10.0.0.10`.
+- Public `80/tcp`, `443/tcp`, and `443/udp` forward from Livebox to `10.0.0.10`. UDP 443 enables HTTP/3; clients fall back to HTTP/2 over TCP when unavailable.
 - Non-HTTP public ports also enter through the edge node first when practical.
 
 Entrypoint address:
@@ -100,6 +101,8 @@ Nextcloud | `cloud.{{ homelab_domain }}` | Public candidate
 Admin and infrastructure tools (AdGuard, Dockge, the *arr stack, qBittorrent, Ollama API, ...) are internal-only / VPN-only. Their domains resolve via AdGuard split-horizon but get no public DNS record. See `services.md` for the per-service exposure table.
 
 Final exposure policy should eventually live close to the service definitions, so routing and documentation can be generated or checked from one source of truth.
+
+Raw application ports are not user-facing, even on the LAN. LAN clients should use service domains through Caddy. On the edge node, Caddy uses host networking and local services are reached over loopback. On compute, host firewalls should allow backend ports only from the edge node IP.
 
 ## Non-HTTP Traffic
 

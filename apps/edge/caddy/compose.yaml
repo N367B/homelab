@@ -3,11 +3,9 @@ services:
     build: .
     container_name: caddy
     restart: unless-stopped
+    network_mode: host
     # --watch: auto-reload on Caddyfile changes (Ansible writes it atomically)
     command: caddy run --config /etc/caddy/Caddyfile --adapter caddyfile --watch
-    ports:
-      - "80:80"
-      - "443:443"
     environment:
       # Rendered at deploy time: sops decrypt secrets/edge-caddy.sops.env > .env
       # Token scopes: Zone.Zone:Read + Zone.DNS:Edit (per caddy-dns/cloudflare docs)
@@ -16,13 +14,7 @@ services:
       - ./Caddyfile:/etc/caddy/Caddyfile:ro
       - caddy_data:/data
       - caddy_config:/config
-    networks:
-      - edge
 
 volumes:
   caddy_data:
   caddy_config:
-
-networks:
-  edge:
-    external: true

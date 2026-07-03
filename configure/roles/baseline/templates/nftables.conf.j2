@@ -21,6 +21,16 @@ table inet homelab_filter {
 {% for port in firewall_open_udp %}
         udp dport {{ port }} accept
 {% endfor %}
+{% for rule in firewall_allow_tcp | default([]) %}
+{% for source in rule.sources %}
+        ip saddr {{ source }} tcp dport {{ rule.port }} accept
+{% endfor %}
+{% endfor %}
+{% for rule in firewall_allow_udp | default([]) %}
+{% for source in rule.sources %}
+        ip saddr {{ source }} udp dport {{ rule.port }} accept
+{% endfor %}
+{% endfor %}
     }
 
     chain forward {

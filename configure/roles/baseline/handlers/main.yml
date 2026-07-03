@@ -4,6 +4,11 @@
     name: ssh
     state: restarted
 
+- name: Restart logind
+  ansible.builtin.systemd_service:
+    name: systemd-logind
+    state: restarted
+
 - name: Reload nftables
   ansible.builtin.command:
     cmd: nft -f /etc/nftables.conf

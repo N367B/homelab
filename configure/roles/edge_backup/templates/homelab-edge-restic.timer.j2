@@ -1,0 +1,10 @@
+[Unit]
+Description=Run homelab edge restic backup
+
+[Timer]
+OnCalendar={{ edge_restic_calendar }}
+RandomizedDelaySec=15m
+Persistent=true
+
+[Install]
+WantedBy=timers.target

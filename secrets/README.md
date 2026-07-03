@@ -27,4 +27,6 @@ Use from each layer:
 | `edge-ddns.sops.env` | `CLOUDFLARE_API_TOKEN` for DDNS (separate token, same scopes, revocable alone) |
 | `edge-adguard.sops.yaml` | `adguard_password_hash` — admin bcrypt hash injected into `AdGuardHome.yaml` at deploy |
 | `edge-authentik.sops.env` | `PG_PASS` + `AUTHENTIK_SECRET_KEY` for the Authentik stack |
-| `backup.sops.yaml` | backup repo password + cloud credentials (tool/provider undecided) |
+| `edge-backup.sops.yaml` | Restic password for local edge backup repository; later OVH S3 key/password for offsite edge backup |
+| `edge-wireguard.sops.yaml` | WireGuard server private key for the edge node |
+| `backup.sops.yaml` | future shared/offsite backup credentials, once provider is chosen |

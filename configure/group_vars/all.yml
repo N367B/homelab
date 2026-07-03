@@ -16,6 +16,7 @@ baseline_packages:
   - snapper
   - sudo
   - unattended-upgrades
+  - wireguard-tools
   - zram-tools
   - age
   - btop
@@ -28,3 +29,6 @@ sops_version: v3.13.1
 # Firewall: every node accepts SSH; groups extend these lists
 firewall_open_tcp: [22]
 firewall_open_udp: []
+firewall_allow_tcp: []
+firewall_allow_udp: []
+disable_physical_power_button: false

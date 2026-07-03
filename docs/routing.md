@@ -22,7 +22,7 @@ All HTTP/HTTPS traffic enters through the edge node at `10.0.0.10`.
 External flow:
 
 1. Public DNS resolves `service.{{ homelab_domain }}` to the home public IP.
-2. Livebox forwards `80/tcp` and `443/tcp` to `10.0.0.10`.
+2. Livebox forwards `80/tcp`, `443/tcp`, and `443/udp` to `10.0.0.10`.
 3. Caddy routes by hostname to private upstreams.
 
 Internal flow:
@@ -33,15 +33,24 @@ Internal flow:
 
 Caddy does not need a catch-all `*.{{ homelab_domain }}` site block. Routing should be explicit per service.
 
-External `80/443` are forwarded as TCP only. HTTP/3 (UDP 443) is not exposed externally; clients fall back to HTTP/2 over TCP. Forward UDP 443 on the Livebox later only if external HTTP/3 is wanted.
+HTTP/3 is supported externally. Caddy publishes `443/udp`, the edge firewall allows `443/udp`, and the Livebox should forward UDP 443 alongside TCP 443. Clients that cannot use QUIC fall back to HTTP/2 over TCP.
 
 ## How Caddy Reaches Upstreams
 
-Each app stack is its own Docker Compose project with its own network, so Caddy cannot resolve another stack's service name by default. Two cases on the edge node:
+Each app stack is its own Docker Compose project. On the edge node, Caddy uses host networking so it can bind public ingress ports directly and reach local backends over loopback.
 
-- Host-networked services (AdGuard) are reached by host IP, e.g. `reverse_proxy 10.0.0.10:3000`.
-- Bridged services on the same node (Authentik, Dockge, ...) must share an external Docker network with Caddy so it can resolve them by container name (`reverse_proxy authentik:9000`). Create it once (`docker network create edge`), then both the Caddy stack and each bridged stack join it. To set up when the first bridged service lands.
+- Host-networked services (AdGuard, Home Assistant) are reached over loopback, e.g. `reverse_proxy 127.0.0.1:3000`. Their raw service ports are not opened in the host firewall.
+- Bridged services on the same node (Authentik, Dockge, ...) should bind only to loopback when Caddy needs to reach them, e.g. `127.0.0.1:9000:9000`, then Caddy proxies to `127.0.0.1:9000`.
 - Services on the compute node are reached by routed IP (`10.10.40.x:port`).
+
+## Backend Port Policy
+
+Only Caddy-facing ingress ports are user-facing: `80/tcp`, `443/tcp`, and `443/udp` on the edge node. Raw application ports are backend transport only.
+
+- Edge-local bridged Docker services bind host ports only on `127.0.0.1` when Caddy needs to reach them.
+- Edge-local host-networked services are reached through `127.0.0.1:<port>` because Caddy also uses host networking.
+- Compute services are reached from edge Caddy over private IPs; the compute host firewall should allow those backend ports only from `10.0.0.10`.
+- Admin services still require an exposure policy at Caddy (`private_only`, Authentik forward-auth, or native auth), even when their raw ports are blocked.
 
 ## TLS Strategy
 

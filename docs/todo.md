@@ -71,15 +71,15 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 
 ## 7. Backup & recovery
 
-Deliberately deferred — backups can be layered on after the core lab runs. Nothing locked yet.
+Restic is now the selected backup engine for the first implementation. Local edge backups are live; offsite target and compute backup details are still open.
 
-- [ ] Backup tool: undecided (Restic, Kopia, Borg, Duplicacy, ... — strong leaning toward Restic/Kopia, not committed)
+- [x] Backup tool: Restic for the first implementation
 - [ ] Offsite target: undecided (Backblaze B2, Cloudflare R2, Scaleway, Hetzner, AWS, ... — pick once Tier 1/2 sizes and monthly cost are known)
 - [ ] Rclone sync strategy per source (one-way vs bidi)
 - [ ] Write `recovery.md` with literal restore steps from cold cloud
 - [ ] Schedule a yearly restore drill
 - [ ] Decide Immich / Nextcloud specific backup (DB dump + data vs app-aware export)
-- [ ] Decide what from Server 2 gets backed up (configs at minimum)
+- [x] Decide what from Server 2 gets backed up initially: `/opt/stacks`, Caddy state, AdGuard work, Authentik DB dump
 
 ## 8. Operations
 

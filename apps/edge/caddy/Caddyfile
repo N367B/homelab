@@ -1,10 +1,5 @@
 {
     email {{ acme_email }}
-    # HTTP/3 disabled: not forwarded externally, and QUIC on the LAN caused
-    # ERR_FAILED on some requests (e.g. the HA auth callback).
-    servers {
-        protocols h1 h2
-    }
 }
 
 # Official syntax: https://github.com/caddy-dns/cloudflare
@@ -40,20 +35,21 @@
 dns.{{ homelab_domain }} {
     import tls_cloudflare
     import private_only
-    # AdGuard uses host networking (DHCP), so target the host IP
-    reverse_proxy 10.0.0.10:3000
+    # Caddy also uses host networking, so host-networked services stay loopback-only.
+    reverse_proxy 127.0.0.1:3000
 }
 
 auth.{{ homelab_domain }} {
     import tls_cloudflare
-    reverse_proxy authentik:9000
+    reverse_proxy 127.0.0.1:9000
 }
 
 home.{{ homelab_domain }} {
+    log
     import tls_cloudflare
-    import private_only
-    # Home Assistant is host-networked, so target the host IP
-    reverse_proxy 10.0.0.10:8123
+    #import private_only
+    # Home Assistant is public for now, but only through Caddy.
+    reverse_proxy 127.0.0.1:8123
 }
 
 # edge.{{ homelab_domain }} {        # Internal — Dockge, when deployed

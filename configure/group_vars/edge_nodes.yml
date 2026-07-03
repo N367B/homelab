@@ -1,14 +1,14 @@
 ---
-# DNS (53), DHCP (67/68), ingress (80/443); HTTP/3 disabled (see Caddyfile).
-# 3000 AdGuard UI, 8123 Home Assistant (both host-networked, reverse-proxied by Caddy).
-# Add 51820/udp when WireGuard lands.
-firewall_open_tcp: [22, 53, 80, 443, 3000, 8123]
-firewall_open_udp: [53, 67, 68]
+# DNS (53), DHCP (67/68), ingress (80/443 + 443/udp HTTP/3).
+# Raw app ports stay closed; host-networked apps are reached by Caddy over loopback.
+firewall_open_tcp: [22, 53, 80, 443]
+firewall_open_udp: [53, 67, 68, 443, 51820]
 
 # Edge resolves via the gateway + public fallback, NOT its own AdGuard: AdGuard's
 # *.{{ homelab_domain }} split-horizon rewrite would hijack Caddy/certmagic zone lookups and
 # break ACME. LAN/public IPs (not 127.0.0.1) so Docker embedded DNS can forward.
 dns_nameservers: [10.0.0.1, 1.1.1.1]
+disable_physical_power_button: true
 
 # Shared external Docker networks created before stacks deploy, so bridged
 # services (Caddy <-> Authentik) can resolve each other by name.
@@ -35,3 +35,34 @@ compose_stacks:
     secret: edge-authentik.sops.env
   - name: homeassistant
     path: edge/homeassistant
+
+edge_restic_repo: /var/backups/restic/edge
+edge_restic_password_file: /root/.config/restic/edge-password
+edge_restic_offsite_enabled: true
+edge_restic_offsite_repo: {{ edge_restic_offsite_repo }}
+edge_restic_offsite_password_file: /root/.config/restic/edge-ovh-password
+edge_restic_offsite_env_file: /root/.config/restic/edge-ovh.env
+edge_restic_calendar: "*-*-* 03:30:00"
+edge_restic_forget_args: "--keep-daily 14 --keep-weekly 8 --keep-monthly 12 --prune"
+edge_restic_file_sets:
+  - name: edge-files
+    tags: [edge, files]
+    paths:
+      - /opt/stacks
+      - /var/lib/docker/volumes/caddy_caddy_data
+      - /var/lib/docker/volumes/caddy_caddy_config
+      - /var/lib/docker/volumes/adguard_adguard_work
+edge_restic_stdin_jobs:
+  - name: authentik-db
+    tags: [edge, authentik-db]
+    filename: authentik.dump
+    command: docker exec authentik-postgresql-1 pg_dump --username authentik --dbname authentik --format custom
+
+wireguard_interface: wg0
+wireguard_address: 10.99.0.1/24
+wireguard_port: 51820
+wireguard_peers:
+  - name: phone
+    address: 10.99.0.11/32
+    public_key: pO9oz6RRRp9+Mztiln9L1FlBeLrPFke6QVThoF+Pr2c=
+    persistent_keepalive: 25

@@ -1,0 +1,116 @@
+---
+- name: Load edge backup secrets
+  community.sops.load_vars:
+    file: "{{ playbook_dir }}/../secrets/edge-backup.sops.yaml"
+  no_log: true
+
+- name: Install restic
+  ansible.builtin.apt:
+    name: restic
+    state: present
+    update_cache: true
+
+- name: Create restic directories
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+  loop:
+    - "{{ edge_restic_repo }}"
+    - "{{ edge_restic_password_file | dirname }}"
+    - "{{ edge_restic_offsite_password_file | default(edge_restic_password_file) | dirname }}"
+
+- name: Install restic password file
+  ansible.builtin.copy:
+    content: "{{ edge_restic_password }}\n"
+    dest: "{{ edge_restic_password_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+
+- name: Install offsite restic password file
+  ansible.builtin.copy:
+    content: "{{ edge_restic_offsite_password | default(edge_restic_password) }}\n"
+    dest: "{{ edge_restic_offsite_password_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: edge_restic_offsite_enabled | bool
+
+- name: Install offsite restic environment file
+  ansible.builtin.template:
+    src: restic-s3.env.j2
+    dest: "{{ edge_restic_offsite_env_file }}"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  when: edge_restic_offsite_enabled | bool
+
+- name: Check restic repository
+  ansible.builtin.command:
+    cmd: "restic -r {{ edge_restic_repo }} --password-file {{ edge_restic_password_file }} snapshots"
+  register: edge_restic_check
+  changed_when: false
+  failed_when: false
+  no_log: true
+
+- name: Initialize restic repository
+  ansible.builtin.command:
+    cmd: "restic -r {{ edge_restic_repo }} --password-file {{ edge_restic_password_file }} init"
+  when: edge_restic_check.rc != 0
+  no_log: true
+
+- name: Check offsite restic repository
+  ansible.builtin.command:
+    cmd: "restic -r {{ edge_restic_offsite_repo }} --password-file {{ edge_restic_offsite_password_file }} snapshots"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ edge_restic_offsite_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ edge_restic_offsite_secret_key }}"
+  register: edge_restic_offsite_check
+  changed_when: false
+  failed_when: false
+  no_log: true
+  when: edge_restic_offsite_enabled | bool
+
+- name: Initialize offsite restic repository
+  ansible.builtin.command:
+    cmd: "restic -r {{ edge_restic_offsite_repo }} --password-file {{ edge_restic_offsite_password_file }} init"
+  environment:
+    AWS_ACCESS_KEY_ID: "{{ edge_restic_offsite_access_key }}"
+    AWS_SECRET_ACCESS_KEY: "{{ edge_restic_offsite_secret_key }}"
+  when:
+    - edge_restic_offsite_enabled | bool
+    - edge_restic_offsite_check.rc != 0
+  no_log: true
+
+- name: Install edge restic systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - homelab-edge-restic.service
+    - homelab-edge-restic.timer
+  notify: Reload systemd
+
+- name: Install edge restic backup runner
+  ansible.builtin.template:
+    src: homelab-edge-restic-backup.j2
+    dest: /usr/local/sbin/homelab-edge-restic-backup
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Enable edge restic timer
+  ansible.builtin.systemd_service:
+    name: homelab-edge-restic.timer
+    enabled: true
+    state: started
+    daemon_reload: true

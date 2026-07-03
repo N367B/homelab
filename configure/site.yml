@@ -16,6 +16,8 @@
   roles:
     - docker_host
     - compose_stacks
+    - edge_backup
+    - wireguard
 
 - name: Compute node — Docker + Incus (Incus role TBD)
   hosts: compute_nodes

@@ -1,0 +1,18 @@
+[Unit]
+Description=Homelab edge restic backup
+Documentation=https://restic.readthedocs.io/
+Wants=docker.service
+After=docker.service
+
+[Service]
+Type=oneshot
+Environment=HOME=/root
+Environment=XDG_CACHE_HOME=/root/.cache
+Environment=RESTIC_REPOSITORY={{ edge_restic_repo }}
+Environment=RESTIC_PASSWORD_FILE={{ edge_restic_password_file }}
+ExecStart=/usr/local/sbin/homelab-edge-restic-backup
+ExecStart=/usr/bin/restic forget {{ edge_restic_forget_args }} --tag edge
+{% if edge_restic_offsite_enabled | bool %}
+ExecStart=/usr/local/sbin/homelab-edge-restic-backup --offsite
+ExecStart=/bin/sh -c '. {{ edge_restic_offsite_env_file }} && /usr/bin/restic -r {{ edge_restic_offsite_repo }} --password-file {{ edge_restic_offsite_password_file }} forget {{ edge_restic_forget_args }} --tag edge'
+{% endif %}
