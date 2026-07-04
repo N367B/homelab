@@ -1,5 +1,7 @@
 # Home Datacenter
 
+[![Validate](https://github.com/N367B/homelab/actions/workflows/validate.yml/badge.svg)](https://github.com/N367B/homelab/actions/workflows/validate.yml)
+
 This repo tracks my dual-node home datacenter. It covers operating system state, edge services, application stacks, secrets, and the notes I need to rebuild or operate the lab.
 
 > Status: actively building. The edge node and core services come first. The compute node and the larger app stack are still catching up, so some docs describe the intended design rather than deployed state.
