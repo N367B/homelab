@@ -4,8 +4,27 @@ This script provides dynamic, software-defined thermal management for HPE ProLia
 
 By default, the modded firmware completely disables the server's native automatic thermal ramping to give you manual control over the fans. However, static fan speeds are dangerous for dynamic workloads. This script acts as an intelligent daemon, monitoring all sensors via Linux and dynamically adjusting the fans in iLO to maintain a perfect balance between acoustics and thermals.
 
+## Known Issues and Our Solutions
+
+When building a software controller for the modded iLO 4 firmware, you will run into several severe hardware bottlenecks. This script solves all of them:
+
+1. **The NAND Flash Wear Issue (The 60-Second Hang)**
+   * **Issue:** By default, every `fan p` command sent to iLO writes its new value directly to the internal flash memory chip so it can persist across reboots. Because flash memory is slow, sending 24 commands (8 channels * 3 commands) takes almost a full minute to process. Doing this frequently burns through the flash chip's write-cycles and prematurely kills your iLO controller.
+   * **Solution:** We prefix the command batch with `fan g nc` (No-Commit). This brilliant hardware flag forces iLO to execute all subsequent fan changes purely in RAM. Command execution time drops from 58 seconds down to **1.5 seconds**, and flash memory wear is completely eliminated.
+
+2. **The iLO Command Queue Deadlock**
+   * **Issue:** Because default commands take 60 seconds to run, running a fan script on a normal cron job (e.g., every 30 seconds) will spawn SSH connections faster than iLO can close them. This results in orphaned SSH processes, filling iLO's command queue until the entire RTOS locks up and requires a hard power cycle.
+   * **Solution:** By utilizing the `nc` flag above, the SSH connection gracefully opens, applies 24 commands, and closes within ~1.5 seconds, ensuring the command queue stays perfectly clean even if polled every 10 seconds. 
+
+3. **Premature SSH Timeouts**
+   * **Issue:** Sometimes the internal iLO RTOS is busy (like during boot) and delays sending the `</>hpiLO->` prompt. Standard SSH client configurations with aggressive `ServerAliveInterval` values will kill the connection mid-execution, leaving orphaned tasks.
+   * **Solution:** The script explicitly passes `ServerAliveInterval=15` and `ServerAliveCountMax=3` via SSH, giving the management chip plenty of buffer to respond.
+
+4. **The "Missing HP-iLO Kernel Module" Conflict**
+   * **Issue:** On the host OS, the `hpilo` kernel module attempts to constantly poll the CHIF interface, competing with the SSH daemon for access to the fan controller.
+   * **Solution:** It is highly recommended to blacklist the `hpilo` module on the compute node OS to give the SSH interface exclusive, uninterrupted access to iLO.
+
 ## Key Features
-* **NAND Flash Bypass Trick (`fan g nc`)**: Safely executes all fan changes exclusively in iLO's RAM. This prevents the ~60-second command hanging issue, permanently eliminates the risk of command-queue lockups, and prevents wearing out the iLO NAND flash chip.
 * **Intelligent Curve Smoothing**: Implements a `DOWN_STEP` logic so that when the server cools, the fans gently ramp down rather than abruptly shutting off and causing thermal spikes.
 * **Multi-Sensor Awareness**: Monitors the CPU, GPU (via `nvidia-smi`), NVMe, Aux/PCIe, and HDDs, dynamically adjusting the fans to the single highest requirement.
 * **Failsafes**: Built-in logic defaults to a safe high RPM if sensors fail to read for a configured number of consecutive polling cycles.
