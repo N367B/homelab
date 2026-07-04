@@ -1,0 +1,59 @@
+{
+	email {{ acme_email }}
+}
+
+# Official syntax: https://github.com/caddy-dns/cloudflare
+(tls_cloudflare) {
+	tls {
+		dns cloudflare {env.CF_API_TOKEN}
+	}
+}
+
+# Internal-only: LAN/VPN source ranges, everyone else gets 403
+(private_only) {
+	@not_private not remote_ip private_ranges
+	respond @not_private 403
+}
+
+# Per-service forward-auth, per https://docs.goauthentik.io/add-secure-apps/providers/proxy/server_caddy
+# (authentik) {
+# 	route {
+# 		reverse_proxy /outpost.goauthentik.io/* http://authentik:9000
+#
+# 		forward_auth http://authentik:9000 {
+# 			uri /outpost.goauthentik.io/auth/caddy
+# 			copy_headers X-Authentik-Username X-Authentik-Groups X-Authentik-Entitlements X-Authentik-Email X-Authentik-Name X-Authentik-Uid X-Authentik-Jwt X-Authentik-Meta-Jwks X-Authentik-Meta-Outpost X-Authentik-Meta-Provider X-Authentik-Meta-App X-Authentik-Meta-Version
+# 			trusted_proxies private_ranges
+# 		}
+#
+# 		# reverse_proxy app:port
+# 	}
+# }
+
+# Exposure policy: docs/services.md. Routes are explicit per service.
+
+dns.{{ homelab_domain }} {
+	import tls_cloudflare
+	import private_only
+	# Caddy also uses host networking, so host-networked services stay loopback-only.
+	reverse_proxy 127.0.0.1:3000
+}
+
+auth.{{ homelab_domain }} {
+	import tls_cloudflare
+	reverse_proxy 127.0.0.1:9000
+}
+
+home.{{ homelab_domain }} {
+	log
+	import tls_cloudflare
+	#import private_only
+	# Home Assistant is public for now, but only through Caddy.
+	reverse_proxy 127.0.0.1:8123
+}
+
+# edge.{{ homelab_domain }} {        # Internal, Dockge when deployed
+# 	import tls_cloudflare
+# 	import private_only
+# 	reverse_proxy dockge:5001
+# }

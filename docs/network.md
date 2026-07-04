@@ -2,7 +2,7 @@
 
 Overall network: `10.0.0.0/8`
 
-Public addresses are intentionally not tracked here. They change over time and do not need to live in the repo.
+Public addresses are not tracked here. They change over time and do not need to live in the repo.
 
 ---
 
@@ -10,44 +10,44 @@ Public addresses are intentionally not tracked here. They change over time and d
 
 For now this is a flat LAN with no VLAN separation. The ranges below are allocation conventions inside the broader `10.0.0.0/8` plan.
 
-The goal is to keep addressing easy to remember now while reserving a clean path to VLANs or routed subnets later. Until VLANs/routing exist, these ranges do not provide isolation by themselves.
+The address plan should stay easy to remember now, while leaving room for VLANs or routed subnets later. Until VLANs or routing exist, these ranges do not provide isolation by themselves.
 
 ## Subnet Plan
 
-Range | Name | Purpose | Status
---- | --- | --- | ---
-`10.0.0.0/16` | Core infrastructure | Gateway, switch, iLO, edge services, ingress, DNS, DHCP | Locked
-`10.10.0.0/16` | Homelab | Compute host, Incus, VMs, Docker application endpoints | Locked
-`10.20.0.0/16` | IoT | Shelly plugs, relays, smart devices | Locked
-`10.32.0.0/12` | DHCP clients | Normal clients, Wi-Fi devices, temporary machines | Locked
+| Range | Name | Purpose | Status |
+| --- | --- | --- | --- |
+| `10.0.0.0/16` | Core infrastructure | Gateway, switch, iLO, edge services, ingress, DNS, DHCP | Locked |
+| `10.10.0.0/16` | Homelab | Compute host, Incus, VMs, Docker application endpoints | Locked |
+| `10.20.0.0/16` | IoT | Shelly plugs, relays, smart devices | Locked |
+| `10.32.0.0/12` | DHCP clients | Normal clients, Wi-Fi devices, temporary machines | Locked |
 
 ## Locked Addresses
 
-IP / Range | Name | Role
---- | --- | ---
-`10.0.0.1` | `gateway` | Livebox / default gateway
-`10.0.0.2` | `switch` | Main switch management
-`10.0.0.3` | `compute-ilo` | Server 1 iLO
-`10.0.0.10` | `edge` | Server 2 / DNS / DHCP / ingress
-`10.10.10.10` | `compute` | Server 1 / main baremetal host
-`10.10.20.0/24` | `incus` | Incus system containers
-`10.10.30.0/24` | `vms` | Virtual machines
-`10.10.40.0/24` | `apps` | Docker application endpoints / routed service IPs
-`10.20.1.10` | `shellyplug-1` | Power monitoring / control
-`10.20.1.11` | `shellyplug-2` | Power monitoring / control
-`10.99.0.0/24` | `vpn` | WireGuard remote access clients
+| IP / Range | Name | Role |
+| --- | --- | --- |
+| `10.0.0.1` | `gateway` | Livebox / default gateway |
+| `10.0.0.2` | `switch` | Main switch management |
+| `10.0.0.3` | `compute-ilo` | Server 1 iLO |
+| `10.0.0.10` | `edge` | Server 2 / DNS / DHCP / ingress |
+| `10.10.10.10` | `compute` | Server 1 / main baremetal host |
+| `10.10.20.0/24` | `incus` | Incus system containers |
+| `10.10.30.0/24` | `vms` | Virtual machines |
+| `10.10.40.0/24` | `apps` | Docker application endpoints / routed service IPs |
+| `10.20.1.10` | `shellyplug-1` | Power monitoring / control |
+| `10.20.1.11` | `shellyplug-2` | Power monitoring / control |
+| `10.99.0.0/24` | `vpn` | WireGuard remote access clients |
 
 ## DNS and Domains
 
-Domain | Provider | Purpose
---- | --- | ---
-`{{ homelab_domain }}` | Cloudflare | Public homelab domain
-`{{ secondary_domain }}` | Porkbun | Owned, purpose TBD
+| Domain                   | Provider   | Purpose               |
+| ------------------------ | ---------- | --------------------- |
+| `{{ homelab_domain }}`   | Cloudflare | Public homelab domain |
+| `{{ secondary_domain }}` | Porkbun    | Owned, purpose TBD    |
 
 Public DNS target:
 
-- `{{ homelab_domain }}` — apex A record, kept current by DDNS.
-- `*.{{ homelab_domain }}` — static wildcard CNAME pointing at the apex, so per-service records follow the apex automatically and DDNS only has to manage one record.
+- `{{ homelab_domain }}` is the apex A record, kept current by DDNS.
+- `*.{{ homelab_domain }}` is a static wildcard CNAME pointing at the apex, so per-service records follow the apex automatically and DDNS only has to manage one record.
 
 Cloudflare must stay DNS-only. No Cloudflare proxying.
 
@@ -79,7 +79,7 @@ Target state:
 
 Public traffic enters through the edge node first.
 
-- Public `80/tcp`, `443/tcp`, and `443/udp` forward from Livebox to `10.0.0.10`. UDP 443 enables HTTP/3; clients fall back to HTTP/2 over TCP when unavailable.
+- Public `80/tcp`, `443/tcp`, and `443/udp` forward from Livebox to `10.0.0.10`. UDP 443 enables HTTP/3. Clients fall back to HTTP/2 over TCP when unavailable.
 - Non-HTTP public ports also enter through the edge node first when practical.
 
 Entrypoint address:
@@ -92,15 +92,15 @@ Note: the edge node has a 2.5G NIC while the main network is 10G and the interne
 
 Some services are expected to be publicly reachable, for example:
 
-Service | Example domain | Initial exposure
---- | --- | ---
-Jellyfin | `jellyfin.{{ homelab_domain }}` | Public candidate
-Immich | `photos.{{ homelab_domain }}` | Public candidate
-Nextcloud | `cloud.{{ homelab_domain }}` | Public candidate
+| Service   | Example domain                  | Initial exposure |
+| --------- | ------------------------------- | ---------------- |
+| Jellyfin  | `jellyfin.{{ homelab_domain }}` | Public candidate |
+| Immich    | `photos.{{ homelab_domain }}`   | Public candidate |
+| Nextcloud | `cloud.{{ homelab_domain }}`    | Public candidate |
 
 Admin and infrastructure tools (AdGuard, Dockge, the *arr stack, qBittorrent, Ollama API, ...) are internal-only / VPN-only. Their domains resolve via AdGuard split-horizon but get no public DNS record. See `services.md` for the per-service exposure table.
 
-Final exposure policy should eventually live close to the service definitions, so routing and documentation can be generated or checked from one source of truth.
+Final exposure policy should eventually live close to the service definitions, so routing and documentation can be checked from one place.
 
 Raw application ports are not user-facing, even on the LAN. LAN clients should use service domains through Caddy. On the edge node, Caddy uses host networking and local services are reached over loopback. On compute, host firewalls should allow backend ports only from the edge node IP.
 
@@ -149,22 +149,22 @@ Requirements:
 
 Local subnet: `192.168.1.0/24`
 
-Range | Purpose
---- | ---
-`192.168.1.0` to `192.168.1.20` | Core infrastructure and management
-`192.168.1.11` to `192.168.1.99` | DHCP pool
-`192.168.1.100` to `192.168.1.199` | Reserved homelab static range
-`192.168.1.200` to `192.168.1.255` | Reserved miscellaneous
+| Range                              | Purpose                            |
+| ---------------------------------- | ---------------------------------- |
+| `192.168.1.0` to `192.168.1.20`    | Core infrastructure and management |
+| `192.168.1.11` to `192.168.1.99`   | DHCP pool                          |
+| `192.168.1.100` to `192.168.1.199` | Reserved homelab static range      |
+| `192.168.1.200` to `192.168.1.255` | Reserved miscellaneous             |
 
 Old allocations:
 
-IP | Role
---- | ---
-`192.168.1.1` | Gateway
-`192.168.1.7` | iLO
-`192.168.1.100` | Baremetal IP
-`192.168.1.251` | ShellyPlug 1
-`192.168.1.252` | ShellyPlug 2
-`192.168.1.254` | Switch
+| IP              | Role         |
+| --------------- | ------------ |
+| `192.168.1.1`   | Gateway      |
+| `192.168.1.7`   | iLO          |
+| `192.168.1.100` | Baremetal IP |
+| `192.168.1.251` | ShellyPlug 1 |
+| `192.168.1.252` | ShellyPlug 2 |
+| `192.168.1.254` | Switch       |
 
 </details>

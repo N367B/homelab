@@ -4,14 +4,14 @@ Status: Authentik chosen.
 
 ## Decisions
 
-Decision | Choice
---- | ---
-Identity provider | Authentik
-Deployment | Docker Compose on the edge node
-Public domain | `auth.{{ homelab_domain }}`
-Primary protocol | OIDC
-Proxy-side auth | Authentik forward-auth through Caddy
-Admin access | Private source ranges plus auth where practical
+| Decision          | Choice                                          |
+| ----------------- | ----------------------------------------------- |
+| Identity provider | Authentik                                       |
+| Deployment        | Docker Compose on the edge node                 |
+| Public domain     | `auth.{{ homelab_domain }}`                     |
+| Primary protocol  | OIDC                                            |
+| Proxy-side auth   | Authentik forward-auth through Caddy            |
+| Admin access      | Private source ranges plus auth where practical |
 
 ## Model
 
@@ -21,12 +21,12 @@ Use native OIDC when an application supports it well. Use Caddy forward-auth for
 
 Auth should be chosen per service:
 
-Auth mode | Use when
---- | ---
-Native | The app has good built-in auth and does not need SSO
-OIDC | The app supports OIDC cleanly
-Forward-auth | The app has weak/no auth or should be protected before reaching it
-Private only | The app is administrative or infrastructure-only
+| Auth mode | Use when |
+| --- | --- |
+| Native | The app has good built-in auth and does not need SSO |
+| OIDC | The app supports OIDC cleanly |
+| Forward-auth | The app has weak/no auth or should be protected before reaching it |
+| Private only | The app is administrative or infrastructure-only |
 
 Admin and infrastructure services default to private. Public exposure must be deliberate.
 

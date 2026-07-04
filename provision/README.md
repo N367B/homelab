@@ -1,9 +1,8 @@
-# provision/ — OpenTofu
+# provision/ OpenTofu
 
-Declarative management of Incus system containers and VMs on the compute node
-(`production` / `testing` workspaces, networks, profiles).
+OpenTofu configuration for Incus system containers and VMs on the compute node. Planned scope includes `production` and `testing` workspaces, networks, and profiles.
 
 Empty until the Server 1 build starts. Planned providers:
 
-- `lxc/incus` — containers, profiles, networks
-- `carlpett/sops` — secrets from `secrets/*.sops.yaml`
+- `lxc/incus` for containers, profiles, and networks
+- `carlpett/sops` for secrets from `secrets/*.sops.yaml`

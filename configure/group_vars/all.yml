@@ -1,7 +1,7 @@
 ---
 admin_user: noe
 timezone: Europe/Paris
-dns_nameservers: [10.0.0.1] # default: gateway; groups override
+dns_nameservers: [10.0.0.1] # default gateway, groups override
 
 # Base packages present on every node
 baseline_packages:
@@ -26,7 +26,7 @@ baseline_packages:
 # renovate: datasource=github-releases depName=getsops/sops
 sops_version: v3.13.2
 
-# Firewall: every node accepts SSH; groups extend these lists
+# Firewall defaults. Every node accepts SSH, groups extend these lists.
 firewall_open_tcp: [22]
 firewall_open_udp: []
 firewall_allow_tcp: []

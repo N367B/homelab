@@ -13,6 +13,11 @@
 - name: Edge node — Docker host for core services
   hosts: edge_nodes
   become: true
+  pre_tasks:
+    - name: Load edge sensitive vars
+      community.sops.load_vars:
+        file: "{{ playbook_dir }}/../secrets/environment.sops.yaml"
+      no_log: true
   roles:
     - docker_host
     - compose_stacks

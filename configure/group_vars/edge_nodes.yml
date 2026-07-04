@@ -1,27 +1,24 @@
 ---
 # DNS (53), DHCP (67/68), ingress (80/443 + 443/udp HTTP/3).
-# Raw app ports stay closed; host-networked apps are reached by Caddy over loopback.
+# Raw app ports stay closed. Host-networked apps are reached by Caddy over loopback.
 firewall_open_tcp: [22, 53, 80, 443]
 firewall_open_udp: [53, 67, 68, 443, 51820]
 
-# Edge resolves via the gateway + public fallback, NOT its own AdGuard: AdGuard's
-# *.{{ homelab_domain }} split-horizon rewrite would hijack Caddy/certmagic zone lookups and
-# break ACME. LAN/public IPs (not 127.0.0.1) so Docker embedded DNS can forward.
+# Edge resolves via the gateway + public fallback, NOT its own AdGuard. The split-horizon rewrite for the homelab domain would hijack Caddy/certmagic zone lookups and break ACME. LAN/public IPs, not 127.0.0.1, let Docker embedded DNS forward.
 dns_nameservers: [10.0.0.1, 1.1.1.1]
 disable_physical_power_button: true
 
-# Shared external Docker networks created before stacks deploy, so bridged
-# services (Caddy <-> Authentik) can resolve each other by name.
+# Shared external Docker networks are created before stacks deploy, so bridged services like Caddy and Authentik can resolve each other by name.
 compose_networks:
   - edge
 
-# Compose stacks deployed by the compose_stacks role. `secret` (optional) is a
-# file under secrets/, decrypted on the controller and rendered to the stack's
-# .env at deploy time — the age key never reaches the node.
+# Compose stacks deployed by the compose_stacks role. `secret` is optional and points to a file under secrets/, decrypted on the controller and rendered to the stack's .env at deploy time. The age key never reaches the node.
 compose_stacks:
   - name: caddy
     path: edge/caddy
     secret: edge-caddy.sops.env
+    config_template: Caddyfile.j2
+    config_dest: Caddyfile
   - name: ddns
     path: edge/ddns
     secret: edge-ddns.sops.env
@@ -39,7 +36,6 @@ compose_stacks:
 edge_restic_repo: /var/backups/restic/edge
 edge_restic_password_file: /root/.config/restic/edge-password
 edge_restic_offsite_enabled: true
-edge_restic_offsite_repo: {{ edge_restic_offsite_repo }}
 edge_restic_offsite_password_file: /root/.config/restic/edge-ovh-password
 edge_restic_offsite_env_file: /root/.config/restic/edge-ovh.env
 edge_restic_calendar: "*-*-* 03:30:00"

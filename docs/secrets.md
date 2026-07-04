@@ -1,6 +1,6 @@
 # Secrets Management
 
-> Status: Tool chosen — **SOPS + age**. Day-to-day workflow and rotation policy still being fleshed out.
+> Status: SOPS + age is implemented for current edge-node secrets. Rotation policy still needs to be formalized.
 
 ## What counts as a secret here
 
@@ -29,18 +29,18 @@ Roughly anything that should never land in git in plaintext:
   - Ansible via `community.sops` collection (decrypts `*.sops.yaml` vars at play time)
   - OpenTofu via the `carlpett/sops` provider
   - Docker / compose via `sops exec-env` or rendered env files at deploy time
-- No always-on service to bootstrap from cold — the entire system is recoverable with just the repo + one age private key.
+- No always-on service to bootstrap from cold. The system is recoverable with just the repo + one age private key.
 - Master/recovery age key:
   - Primary copy: Proton Pass
   - Offline copy: paper backup in a safe place
-- Repo will be public once the lab is live; treated as already public during the build (no plaintext secrets, ever).
+- Repo will be public once the lab is live. It is treated as public during the build too, with no plaintext secrets committed.
 
 ## Open questions
 
 - Bootstrap chicken-and-egg: how does the very first Ansible run on a fresh node get the age private key? Likely: `scp` from the admin workstation as part of `bootstrap.md`, then Ansible takes over.
 - Rotation policy: cadence and the one-shot re-encryption workflow when the master key is rotated.
-- Day-to-day workflow: probably `sops edit secrets/<scope>.yaml` + commit, possibly fronted by a `just` recipe.
+- Day-to-day workflow: edit encrypted files with `sops edit` directly or through the repository `Makefile`.
 
 ## For now
 
-Nothing committed to this repo should contain plaintext credentials. Real secrets land in git only via SOPS-encrypted files; loose `.env` files for early experimentation stay gitignored.
+Nothing committed to this repo should contain plaintext credentials. Real secrets land in git only via SOPS-encrypted files. Loose `.env` files for early experimentation stay gitignored.

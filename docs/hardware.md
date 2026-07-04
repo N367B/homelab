@@ -20,6 +20,7 @@
 - Power Supply: 800W PSU (Active) + 500W (Cold Spare)
 
 Storage Configuration (Server 1):
+
 - HDD: 6 x 10TB HGST/WD Ultrastar SAS 12G, 4Kn (HUH721010AL42C0)
   - Health/Stats: 50k to 65k hours SMART status Good Some corrected ECC, but 0 uncorrected, 0 non‑medium, 0 grown defects
   - Modifications: PWDIS mitigation applied (Kapton tape on SATA power pins 1–3, unnecessary now)
@@ -41,9 +42,9 @@ Storage Configuration (Server 1):
 
 - PulseHeberg VPS: Nova G2
   - Hardware: 2 vCPU, 2GB RAM, 30GB SSD (RAID 10)
-  - IPv4: {{ vps_ipv4 }}
-  - IPv6: {{ vps_ipv6 }}
-  - Reverse DNS (PTR): {{ secondary_domain }}
+  - IPv4: `{{ vps_ipv4 }}`
+  - IPv6: `{{ vps_ipv6 }}`
+  - Reverse DNS (PTR): `{{ secondary_domain }}`
   - Capabilities: snapshots and arbitrary OS/software installs
   - Billing: 30.00 EUR annually
   - Renewal Date: 2027-05-22
@@ -64,7 +65,7 @@ Storage Configuration (Server 1):
 ### Networking
 
 - ISP & Speed: Orange Symmetrical Fiber Optics (8 Gbps Down / 8 Gbps Up)
-- 10G Switch (XikeStor SKS8300-8X) routing 
+- 10G Switch (XikeStor SKS8300-8X) routing
 - Client Connectivity: All primary devices have 10G NICs
 - Hardware is generally budget Chinese networking gear, but runs reliably for now
 
@@ -73,6 +74,7 @@ Storage Configuration (Server 1):
 - Plugs/Relays: ShellyPlugs used for power management and monitoring
 
 ---
+
 <details>
   <summary>Gaming Setup</summary>
 
@@ -85,7 +87,7 @@ Storage Configuration (Server 1):
 - Motherboard: ASUS TUF GAMING X670E-PLUS
 - GPU: Sapphire Radeon RX 7900 XTX PULSE
 - RAM: 64GB (4 x 16GB) Corsair Vengeance DDR5 6000MHz CAS 30
-  - 2 sticks support XMP/EXPO, 2 do not Currently optimized at ~5600MHz (CL36-38-38-78) Room for further optimization/testing
+  - 2 sticks support XMP/EXPO, 2 do not. Currently optimized at ~5600MHz (CL36-38-38-78), with room for further testing
 - Power Supply: MSI MPG A850G PCIE5 (850W)
 - Case: Fractal Design Pop XL Air
 - NIC X520-DA1 SFP+
@@ -117,4 +119,4 @@ Storage Configuration (Server 1):
 
 </details>
 
->>> Additional cables, adapters, and various unlisted accessories are present in the lab ecosystem
+Additional cables, adapters, and unlisted accessories are present in the lab ecosystem.

@@ -14,5 +14,5 @@ services:
       - /etc/localtime:/etc/localtime:ro
       - /run/dbus:/run/dbus:ro
     devices:
-      # Sonoff ZBDongle-E (EFR32MG21) for ZHA — stable by-id path
+      # Sonoff ZBDongle-E (EFR32MG21) for ZHA, using the stable by-id path
       - /dev/serial/by-id/usb-SONOFF_SONOFF_Dongle_Lite_MG21_00331d3366a2ef11a9fd946661ce3355-if00-port0:/dev/ttyUSB0

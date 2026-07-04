@@ -4,7 +4,7 @@ services:
     container_name: adguard
     restart: unless-stopped
     # Host networking: required for DHCP broadcast + real client IPs.
-    # Uses 53/tcp+udp (DNS), 67/68/udp (DHCP), 3000/tcp (web UI, proxied as dns.{{ homelab_domain }})
+    # Uses 53/tcp+udp (DNS), 67/68/udp (DHCP), 3000/tcp (web UI, proxied through Caddy)
     network_mode: host
     volumes:
       - ./conf:/opt/adguardhome/conf # AdGuardHome.yaml managed in git

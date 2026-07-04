@@ -23,9 +23,7 @@
     mode: "0440"
     validate: visudo -cf %s
 
-# Static resolv.conf (no dhcpcd/resolved/resolvconf here). Real nameservers are
-# required so Docker's embedded DNS can forward — without them, containers on
-# user-defined networks get SERVFAIL.
+# Static resolv.conf, with no dhcpcd/resolved/resolvconf here. Real nameservers are required so Docker's embedded DNS can forward. Without them, containers on user-defined networks get SERVFAIL.
 - name: Configure DNS resolvers
   ansible.builtin.template:
     src: resolv.conf.j2
@@ -111,8 +109,7 @@
     mode: "0644"
   notify: Restart zramswap
 
-# QUIC/HTTP3 wants large UDP buffers; default (~208 KiB) makes Caddy warn and
-# limits HTTP/3. quic-go asks for ~7 MiB.
+# QUIC/HTTP3 wants large UDP buffers. The default around 208 KiB makes Caddy warn and limits HTTP/3. quic-go asks for about 7 MiB.
 - name: Raise UDP buffer limits for QUIC/HTTP3
   ansible.posix.sysctl:
     name: "{{ item }}"
@@ -160,12 +157,8 @@
     state: started
     daemon_reload: true
 
-# TODO: BTRFS subvolume layout (@, @home, @var, @log, @snapshots) + snapper
-# configs + grub-btrfs (install from upstream release/source; it is not in
-# Debian 13/Trixie). Migrating a freshly-installed root into @ is a
-# one-time, reboot-requiring operation — script it as a guarded task file
-# (btrfs_layout.yml) before the first real install. Plan:
+# TODO: BTRFS subvolume layout (@, @home, @var, @log, @snapshots) + snapper configs + grub-btrfs. Install from upstream release/source because it is not in Debian 13/Trixie. Migrating a freshly-installed root into @ is a one-time operation that needs a reboot. Script it as guarded task file (btrfs_layout.yml) before the first real install. Plan:
 #   1. mount -o subvolid=5 /dev/<root> /mnt
-#   2. btrfs subvolume snapshot / /mnt/@ ; create @home @var @log @snapshots
-#   3. fstab: subvol= options for each mountpoint; update-grub; reboot
+#   2. btrfs subvolume snapshot / /mnt/@, create @home @var @log @snapshots
+#   3. fstab subvol= options for each mountpoint, update-grub, reboot
 #   4. delete stray top-level files left outside @

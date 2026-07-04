@@ -45,8 +45,7 @@
   ansible.builtin.template:
     src: "{{ playbook_dir }}/../apps/{{ stack.path }}/{{ stack.config_template }}"
     dest: "/opt/stacks/{{ stack.name }}/{{ stack.config_dest }}"
-    # The container rewrites this file as its own user; match that owner so the
-    # render stays idempotent instead of re-chowning every run.
+    # The container rewrites this file as its own user. Match that owner so the render stays idempotent instead of re-chowning every run.
     owner: "{{ stack.config_owner | default('root') }}"
     group: "{{ stack.config_owner | default('root') }}"
     mode: "0600"

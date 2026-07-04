@@ -4,28 +4,28 @@ Status: plain WireGuard on the edge node.
 
 ## Decisions
 
-Decision | Choice
---- | ---
-VPN | WireGuard
-Server | `edge`
-Interface | `wg0`
-Listen port | `51820/udp`
-VPN subnet | `10.99.0.0/24`
-Edge VPN IP | `10.99.0.1`
-Edge public key | `zR64G3SFLAEN1OXATRbM1bOttgArlv3V+xGt9dVZeCI=`
-Client private keys | Generated and stored on each client, not in this repo
-Client public keys | Stored in Ansible variables
+| Decision            | Choice                                                |
+| ------------------- | ----------------------------------------------------- |
+| VPN                 | WireGuard                                             |
+| Server              | `edge`                                                |
+| Interface           | `wg0`                                                 |
+| Listen port         | `51820/udp`                                           |
+| VPN subnet          | `10.99.0.0/24`                                        |
+| Edge VPN IP         | `10.99.0.1`                                           |
+| Edge public key     | `zR64G3SFLAEN1OXATRbM1bOttgArlv3V+xGt9dVZeCI=`        |
+| Client private keys | Generated and stored on each client, not in this repo |
+| Client public keys  | Stored in Ansible variables                           |
 
 ## Addressing
 
 The VPN subnet is `10.99.0.0/24`. It stays inside the global `10.0.0.0/8` homelab plan but outside the existing allocation ranges, so VPN traffic is easy to identify.
 
-Address | Purpose
---- | ---
-`10.99.0.1` | edge WireGuard endpoint
-`10.99.0.10-10.99.0.99` | personal devices
-`10.99.0.100-10.99.0.199` | future service/device peers
-`10.99.0.200-10.99.0.254` | reserved
+| Address                   | Purpose                     |
+| ------------------------- | --------------------------- |
+| `10.99.0.1`               | edge WireGuard endpoint     |
+| `10.99.0.10-10.99.0.99`   | personal devices            |
+| `10.99.0.100-10.99.0.199` | future service/device peers |
+| `10.99.0.200-10.99.0.254` | reserved                    |
 
 ## Peer Model
 
@@ -48,7 +48,7 @@ Current workflow:
 3. Run `make deploy LIMIT=edge`.
 4. Import the client config into the WireGuard app.
 
-This is intentionally simple and GitOps-like for now. A self-service/on-the-fly peer UI can be added later if manual peer onboarding becomes annoying.
+This stays simple and Git-backed for now. A self-service peer UI can be added later if manual onboarding becomes annoying.
 
 ## Creating Client Keys
 

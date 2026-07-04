@@ -15,6 +15,10 @@ keys.txt
 age.key
 *.agekey
 
+# Runtime state
+scripts/ml350_fan_controller/ml350_fan.state.json
+scripts/ml350_fan_controller/ml350_fan.state.tmp
+
 # OpenTofu local state/caches (state should never hold plaintext in git anyway)
 .terraform/
 *.tfstate
