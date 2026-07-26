@@ -62,3 +62,7 @@ wireguard_peers:
     address: 10.99.0.11/32
     public_key: pO9oz6RRRp9+Mztiln9L1FlBeLrPFke6QVThoF+Pr2c=
     persistent_keepalive: 25
+  - name: omnibook
+    address: 10.99.0.12/32
+    public_key: wPOg3iL7Hc8iYQRL8T7x4A6MNRR8ZWIj0jGFa624VgU=
+    persistent_keepalive: 25
