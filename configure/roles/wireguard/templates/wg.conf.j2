@@ -2,6 +2,9 @@
 Address = {{ wireguard_address }}
 ListenPort = {{ wireguard_port }}
 PrivateKey = {{ wireguard_private_key }}
+PostUp = /usr/sbin/nft -f /etc/wireguard/{{ wireguard_interface }}-nat.nft
+PostDown = /usr/sbin/nft flush chain ip filter DOCKER-USER || true
+PostDown = /usr/sbin/nft destroy table inet homelab_wg_nat
 
 {% for peer in wireguard_peers %}
 [Peer]

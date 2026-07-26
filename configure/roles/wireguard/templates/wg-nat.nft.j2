@@ -1,0 +1,35 @@
+#!/usr/sbin/nft -f
+# {{ ansible_managed }}
+# Forwarding and NAT for VPN peers. Applied by wg-quick PostUp and torn down by
+# PostDown, so these rules exist exactly while {{ wireguard_interface }} is up.
+#
+# Docker owns `table ip filter` and sets its FORWARD policy to drop. A drop
+# policy wins over every other base chain on the hook, so the accept policy in
+# our own `table inet homelab_filter` cannot rescue forwarded VPN packets.
+# DOCKER-USER is the chain Docker documents as user-owned and jumps first from
+# FORWARD, so an accept there ends FORWARD evaluation before Docker's own rules.
+
+# Idempotent: create what may be missing, then own the chain's contents
+# outright. Nothing else in this lab writes to DOCKER-USER.
+add table ip filter
+add chain ip filter DOCKER-USER
+flush chain ip filter DOCKER-USER
+
+table ip filter {
+    chain DOCKER-USER {
+        iifname "{{ wireguard_interface }}" oifname "{{ wireguard_lan_interface }}" accept
+        iifname "{{ wireguard_lan_interface }}" oifname "{{ wireguard_interface }}" ct state established,related accept
+    }
+}
+
+# Peers keep their {{ wireguard_subnet }} source only inside the tunnel. On the LAN they
+# appear as the edge node, so the Livebox needs no static route back to the VPN.
+# Peer-to-peer traffic staying on {{ wireguard_interface }} is left untranslated.
+destroy table inet homelab_wg_nat
+
+table inet homelab_wg_nat {
+    chain postrouting {
+        type nat hook postrouting priority srcnat; policy accept;
+        ip saddr {{ wireguard_subnet }} oifname "{{ wireguard_lan_interface }}" masquerade
+    }
+}

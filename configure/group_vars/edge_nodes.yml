@@ -57,6 +57,13 @@ edge_restic_stdin_jobs:
 wireguard_interface: wg0
 wireguard_address: 10.99.0.1/24
 wireguard_port: 51820
+wireguard_subnet: 10.99.0.0/24
+# Peers are masqueraded out of whatever NIC carries the default route (enp4s0
+# today), so LAN hosts need no route back to 10.99.0.0/24.
+wireguard_lan_interface: "{{ ansible_facts['default_ipv4']['interface'] }}"
+# Peer addresses are handed out from the personal-device range (10.99.0.10-99)
+# and must match the client's own `Address` exactly: WireGuard drops any packet
+# whose source is outside the peer's AllowedIPs. See docs/vpn.md.
 wireguard_peers:
   - name: phone
     address: 10.99.0.11/32

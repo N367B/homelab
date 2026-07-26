@@ -18,6 +18,27 @@
     group: root
     mode: "0700"
 
+# Peers reach the rest of the lab through the edge node, so the kernel has to
+# route between wg0 and the LAN. Docker turns this on at daemon start, which is
+# why the VPN can look fine until the day Docker is stopped. Declare it.
+- name: Enable IPv4 forwarding for VPN peers
+  ansible.posix.sysctl:
+    name: net.ipv4.ip_forward
+    value: "1"
+    sysctl_set: true
+    state: present
+    reload: true
+
+- name: Render WireGuard forwarding and NAT rules
+  ansible.builtin.template:
+    src: wg-nat.nft.j2
+    dest: "/etc/wireguard/{{ wireguard_interface }}-nat.nft"
+    owner: root
+    group: root
+    mode: "0700"
+    validate: /usr/sbin/nft --check --file %s
+  notify: Restart WireGuard
+
 - name: Render WireGuard config
   ansible.builtin.template:
     src: wg.conf.j2
@@ -28,8 +49,29 @@
   no_log: true
   notify: Restart WireGuard
 
+- name: Create WireGuard systemd drop-in directory
+  ansible.builtin.file:
+    path: "/etc/systemd/system/wg-quick@{{ wireguard_interface }}.service.d"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+# PostUp writes into DOCKER-USER, which only exists once dockerd has built its
+# tables. Without this ordering a reboot races and the VPN comes up unrouted.
+- name: Order WireGuard after Docker
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/wg-quick@{{ wireguard_interface }}.service.d/10-after-docker.conf"
+    content: |
+      [Unit]
+      After=docker.service
+    owner: root
+    group: root
+    mode: "0644"
+
 - name: Enable WireGuard
   ansible.builtin.systemd_service:
     name: "wg-quick@{{ wireguard_interface }}"
     enabled: true
     state: started
+    daemon_reload: true
