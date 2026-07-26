@@ -23,6 +23,14 @@
     mode: "0440"
     validate: visudo -cf %s
 
+- name: Manage admin SSH authorized keys
+  ansible.posix.authorized_key:
+    user: "{{ admin_user }}"
+    state: present
+    key: "{{ item }}"
+  loop: "{{ admin_authorized_keys }}"
+  when: admin_authorized_keys is defined
+
 # Static resolv.conf, with no dhcpcd/resolved/resolvconf here. Real nameservers are required so Docker's embedded DNS can forward. Without them, containers on user-defined networks get SERVFAIL.
 - name: Configure DNS resolvers
   ansible.builtin.template:
