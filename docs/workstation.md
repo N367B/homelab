@@ -50,6 +50,7 @@ ssh-keygen -t ed25519 -f ~/.ssh/homelab -C "noe@<hostname>"
 Add the generated public key (`~/.ssh/homelab.pub`) to `admin_authorized_keys` in `configure/group_vars/all.yml` and run `make deploy`.
 
 ### Automatic SSH Sync Script (`~/bin/sync-ssh`)
+
 To keep `~/.ssh` synchronized between Windows (`C:\Users\<User>\.ssh`) and WSL with automatic local Git versioning, create `~/bin/sync-ssh`:
 
 ```sh
@@ -58,25 +59,33 @@ nano ~/bin/sync-ssh
 chmod +x ~/bin/sync-ssh
 ```
 
+> **Day 0 Setup Note for new workstations**:
+> Before running the script for the first time on a new workstation, ensure:
+> 1. A Git repository is initialized inside `~/.ssh` (`git -C ~/.ssh init`).
+> 2. `WIN` path in `~/bin/sync-ssh` points to your Windows user `.ssh` folder (e.g. `/mnt/c/Users/<WindowsUser>/.ssh`).
+
 **Script contents (`~/bin/sync-ssh`)**:
 
 ```bash
 #!/bin/bash
 # Two-way sync of ~/.ssh (WSL) <-> Windows .ssh, versioned in git.
 # Newest file wins in both directions; known_hosts stays per-side.
+# Every state is committed to the local git repo in ~/.ssh, so any
+# overwrite is recoverable with: cd ~/.ssh && git log / git checkout
 set -e
-WIN="/mnt/c/Users/Bodin/.ssh"
+WIN=/mnt/c/Users/Bodin/.ssh
 WSL="$HOME/.ssh"
 EXCLUDES=(--exclude 'known_hosts*' --exclude '.git*' --exclude '.overwritten' --exclude 'agent.*' --exclude '*.sock' --exclude 'control-*')
 
 exec 9>"$WSL/.sync-ssh.lock"
 flock -n 9 || exit 0
 
-# Probe clock skew vs Windows
-touch "$WIN/.timeprobe" 2>/dev/null || exit 0
+# Newest-wins needs both clocks aligned. Probe skew and warn if off
+# (fix: run "w32tm /resync" in an admin Windows terminal).
+touch "$WIN/.timeprobe"
 skew=$(( $(stat -c %Y "$WIN/.timeprobe") - $(date +%s) ))
 rm -f "$WIN/.timeprobe"
-[ "${skew#-}" -gt 2 ] && echo "sync-ssh: WARNING ${skew}s clock skew vs Windows" >&2
+[ "${skew#-}" -gt 2 ] && echo "sync-ssh: WARNING ${skew}s clock skew vs Windows — sync order unreliable, run 'w32tm /resync' as admin on Windows" >&2
 
 snapshot() {
     git -C "$WSL" add -A
@@ -85,6 +94,8 @@ snapshot() {
 
 snapshot "pre-sync"
 
+# Preserve Windows-side versions that are about to lose (WSL file is newer
+# and content differs) — copy them into git before they get overwritten.
 mkdir -p "$WSL/.overwritten"
 for f in "$WIN"/*; do
     b=$(basename "$f")
