@@ -1,7 +1,7 @@
 # Based on the official example: https://github.com/favonia/cloudflare-ddns
 services:
   cloudflare-ddns:
-    image: favonia/cloudflare-ddns:1.16.2
+    image: favonia/cloudflare-ddns:1.17.0
     network_mode: host
     restart: always
     user: "1000:1000"

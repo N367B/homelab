@@ -28,7 +28,7 @@ baseline_packages:
   - fzf
 # sops and grub-btrfs come from upstream releases (baseline role), not apt
 # renovate: datasource=github-releases depName=getsops/sops
-sops_version: v3.13.2
+sops_version: v3.13.3
 
 # Firewall defaults. Every node accepts SSH, groups extend these lists.
 firewall_open_tcp: [22]
