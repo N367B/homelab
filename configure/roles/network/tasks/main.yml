@@ -1,0 +1,29 @@
+---
+# Owns the static address of a node's LAN interface. The role writes files and
+# nothing else: a node keeps the address it has until it is re-addressed on
+# purpose with scripts/net-apply/apply.sh, which arms an automatic revert first.
+# The next boot reads these files either way.
+- name: Check the LAN interface variables are set
+  ansible.builtin.assert:
+    that:
+      - lan_interface is defined
+      - lan_address is defined
+      - lan_gateway is defined
+    fail_msg: "Set lan_interface, lan_address and lan_gateway in the group or host vars"
+    quiet: true
+
+- name: Keep only loopback and the include in /etc/network/interfaces
+  ansible.builtin.template:
+    src: interfaces.j2
+    dest: /etc/network/interfaces
+    owner: root
+    group: root
+    mode: "0644"
+
+- name: Describe the LAN interface
+  ansible.builtin.template:
+    src: lan.j2
+    dest: /etc/network/interfaces.d/lan
+    owner: root
+    group: root
+    mode: "0644"

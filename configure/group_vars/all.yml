@@ -1,7 +1,7 @@
 ---
 admin_user: noe
 timezone: Europe/Paris
-dns_nameservers: [10.0.0.1] # default gateway, groups override
+dns_nameservers: [192.168.7.1] # default gateway, groups override
 
 admin_authorized_keys:
   - "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIEkuYBYtb+I4Smu5BKJOS0rHLkzzZRl+XJ6RCM+W1ULj noe@homelab"
