@@ -23,3 +23,7 @@ scripts/ml350_fan_controller/ml350_fan.state.tmp
 .terraform/
 *.tfstate
 *.tfstate.*
+
+# Freebox exports hold the Wi-Fi password
+config_*.bin
+config_*.bin:Zone.Identifier

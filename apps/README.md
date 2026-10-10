@@ -31,7 +31,7 @@ Caddy is built from its Dockerfile on first deploy (`build: policy`). After a Re
 ### First-deploy notes
 
 1. Caddy provisions certificates via DNS-01 on startup. Watch `docker compose logs caddy` for issuance, which is the real test of the Cloudflare token. It returns 502 until AdGuard is up, which is expected.
-2. AdGuard runs host-networked. The role starts the container, but the first-run app config is a one-time manual step. Browse to `http://10.0.0.10:3000` and set the admin web UI to port 3000 because Caddy owns `80/443`. Confirm nothing else holds `:53` first with `ss -lunp | grep :53`. On a minimal Debian install, systemd-resolved is not enabled.
+2. AdGuard runs host-networked. The role starts the container, but the first-run app config is a one-time manual step. Browse to `http://192.168.7.10:3000` and set the admin web UI to port 3000 because Caddy owns `80/443`. Confirm nothing else holds `:53` first with `ss -lunp | grep :53`. On a minimal Debian install, systemd-resolved is not enabled.
 3. Bridged edge services added later must join a shared external network with Caddy. See `docs/routing.md`.
 
 Manual `sops decrypt … > .env && docker compose up -d` still works for one-off debugging, but normal deploys should go through Ansible.

@@ -1,0 +1,8 @@
+---
+# Desired management settings of the XikeStor SKS8300-8X, applied by
+# scripts/switch/apply.py. The switch forwards at L2; this is only the address
+# the admin workstation reaches it on and the route it uses to go out.
+switch:
+  address: 192.168.7.2
+  netmask: 255.255.255.0
+  gateway: 192.168.7.1

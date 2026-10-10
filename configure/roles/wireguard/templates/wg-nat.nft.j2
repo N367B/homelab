@@ -23,7 +23,7 @@ table ip filter {
 }
 
 # Peers keep their {{ wireguard_subnet }} source only inside the tunnel. On the LAN they
-# appear as the edge node, so the Livebox needs no static route back to the VPN.
+# appear as the edge node, so the Freebox needs no static route back to the VPN.
 # Peer-to-peer traffic staying on {{ wireguard_interface }} is left untranslated.
 destroy table inet homelab_wg_nat
 

@@ -9,8 +9,11 @@ CFG         := ANSIBLE_CONFIG=$(CURDIR)/$(ANSIBLE_DIR)/ansible.cfg
 # Which node(s) to act on. Override: `make deploy LIMIT=compute` or LIMIT=all
 LIMIT ?= edge
 
+# Extra ansible-playbook arguments, e.g. EXTRA="-e ansible_host=<other-address>"
+EXTRA ?=
+
 .DEFAULT_GOAL := help
-.PHONY: help deps deploy deploy-first check syntax ping edit
+.PHONY: help deps deploy deploy-first check syntax ping edit switch switch-check
 
 help: ## Show this help
 	@grep -hE '^[a-zA-Z_-]+:.*?## ' $(MAKEFILE_LIST) \
@@ -20,13 +23,13 @@ deps: ## Install Ansible collections from requirements.yml
 	cd $(ANSIBLE_DIR) && $(CFG) ansible-galaxy collection install -r requirements.yml
 
 deploy: ## Converge the lab (default LIMIT=edge)
-	cd $(ANSIBLE_DIR) && $(CFG) ansible-playbook site.yml --limit $(LIMIT)
+	cd $(ANSIBLE_DIR) && $(CFG) ansible-playbook site.yml --limit $(LIMIT) $(EXTRA)
 
 deploy-first: ## First run on a fresh node — prompts once for the sudo password
-	cd $(ANSIBLE_DIR) && $(CFG) ansible-playbook site.yml --limit $(LIMIT) -K
+	cd $(ANSIBLE_DIR) && $(CFG) ansible-playbook site.yml --limit $(LIMIT) -K $(EXTRA)
 
 check: ## Dry-run: show what would change, change nothing
-	cd $(ANSIBLE_DIR) && $(CFG) ansible-playbook site.yml --limit $(LIMIT) --check --diff
+	cd $(ANSIBLE_DIR) && $(CFG) ansible-playbook site.yml --limit $(LIMIT) --check --diff $(EXTRA)
 
 syntax: ## Validate the playbook/roles parse
 	cd $(ANSIBLE_DIR) && $(CFG) ansible-playbook site.yml --syntax-check
@@ -37,3 +40,9 @@ ping: ## Check Ansible can reach the node(s)
 edit: ## Edit a SOPS secret: make edit FILE=secrets/edge-caddy.sops.env
 	@test -n "$(FILE)" || { echo "Usage: make edit FILE=secrets/<name>.sops.env"; exit 1; }
 	sops edit $(FILE)
+
+switch-check: ## Show how the switch differs from configure/group_vars/switch.yml (needs SWITCH_USER, SWITCH_PASS)
+	scripts/switch/apply.py --check
+
+switch: ## Bring the switch to configure/group_vars/switch.yml (needs SWITCH_USER, SWITCH_PASS)
+	scripts/switch/apply.py
