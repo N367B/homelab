@@ -34,7 +34,7 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 
 - [x] Lock in final subnet plan (the `10.10.1.0` duplicate is fixed in `network.md`: incus `10.10.20.0/24`, vms `10.10.30.0/24`, apps `10.10.40.0/24`)
 - [ ] Configure VLANs on the XikeStor switch (Core / Homelab / IoT / Mgmt)
-- [ ] Decide how to block Livebox IPv6 RAs (switch-level filter? bridge config?)
+- [ ] Decide how to block Freebox IPv6 RAs (switch-level filter? bridge config?)
 - [ ] Run own IPv6 RA from edge node with custom DNS
 - [ ] Wake-on-LAN: BIOS + OS + edge-side trigger (magic packet from AdGuard/edge)
 - [ ] Ansible-manage the static interface config. Set manually at Day 0 per `bootstrap.md`. Move `/etc/network/interfaces.d/static` into the baseline role for reproducibility, carefully, because rewriting it can drop the SSH connection

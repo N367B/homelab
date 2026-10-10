@@ -21,7 +21,7 @@ These services run 24/7 on the edge node and handle network ingress, identity, a
 | --- | --- | --- | --- | --- | --- |
 | Caddy | 80, 443 | - | - | - | Master ingress proxy |
 | Authentik | 9000 | `auth.{{ homelab_domain }}` | Public | Native | SSO Provider (must be public for OIDC redirects from outside) |
-| AdGuard Home | 3000 | `dns.{{ homelab_domain }}` | Internal | Authentik | Internal DNS and DHCP |
+| AdGuard Home | 3000 | `dns.{{ homelab_domain }}` | Internal | Authentik | Internal DNS |
 | Dockge (Edge) | 5001 | `edge.{{ homelab_domain }}` | Internal | Authentik | Manages Server 2 stacks |
 
 ## Media Stack (Server 1 - ML350 Gen9)

@@ -18,7 +18,7 @@ Status: plain WireGuard on the edge node.
 
 ## Addressing
 
-The VPN subnet is `10.99.0.0/24`. It stays inside the global `10.0.0.0/8` homelab plan but outside the existing allocation ranges, so VPN traffic is easy to identify.
+The VPN subnet is `10.99.0.0/24`. It stays inside the `10.x` homelab address space but outside every other allocation, so VPN traffic is easy to identify.
 
 | Address                   | Purpose                     |
 | ------------------------- | --------------------------- |
@@ -101,12 +101,12 @@ Split tunnel for homelab access:
 [Interface]
 PrivateKey = <client-private-key>
 Address = <peer-address>/32
-DNS = 10.0.0.10
+DNS = 192.168.7.10
 
 [Peer]
 PublicKey = zR64G3SFLAEN1OXATRbM1bOttgArlv3V+xGt9dVZeCI=
 Endpoint = {{ homelab_domain }}:51820
-AllowedIPs = 10.0.0.0/8
+AllowedIPs = 192.168.7.0/24, 10.10.0.0/16
 PersistentKeepalive = 25
 ```
 
@@ -116,7 +116,7 @@ Verification after connecting:
 
 ```sh
 ping 10.99.0.1     # the tunnel itself
-ping 10.0.0.10     # the LAN behind it, which needs forwarding + NAT to work
+ping 192.168.7.10     # the LAN behind it, which needs forwarding + NAT to work
 curl -I https://home.{{ homelab_domain }}
 ```
 
@@ -137,11 +137,11 @@ Two details make this less obvious than it looks:
 
 Because the rules live in `PostUp`/`PostDown`, they exist exactly while the tunnel is up. `wg-quick@wg0` gets an `After=docker.service` drop-in so `DOCKER-USER` exists before `PostUp` runs at boot.
 
-Peers are masqueraded, so LAN hosts see VPN traffic as coming from `10.0.0.10` and the Livebox needs no route back to `10.99.0.0/24`. The cost is that per-peer source addresses are not visible to LAN services. Revisit if a service ever needs to authorise by VPN source IP.
+Peers are masqueraded, so LAN hosts see VPN traffic as coming from `192.168.7.10` and the Freebox needs no route back to `10.99.0.0/24`. The cost is that per-peer source addresses are not visible to LAN services. Revisit if a service ever needs to authorise by VPN source IP.
 
 ## Notes
 
-- Livebox forwards `51820/udp` to `10.0.0.10` for external VPN access.
-- AdGuard can be used as DNS over the tunnel via `10.0.0.10`.
-- `AllowedIPs = 10.0.0.0/8` covers the whole LAN plan, which is also `10.0.0.0/8`. At home the tunnel therefore captures LAN traffic and sends it out to the public IP and back in through hairpin NAT. It works, but the sane move is to leave the tunnel down on the home network — AdGuard split-horizon already resolves service names to the internal ingress.
+- The Freebox forwards `51820/udp` to `192.168.7.10` for external VPN access.
+- AdGuard can be used as DNS over the tunnel via `192.168.7.10`.
+- `AllowedIPs = 192.168.7.0/24, 10.10.0.0/16` covers the main LAN and the routed homelab subnets (see `network.md`), not a broad `10.0.0.0/8`. At home those ranges are the local LAN, so the tunnel would send local traffic out to the public IP and back in through hairpin NAT. Leave the tunnel down on the home network: AdGuard split-horizon already resolves service names to the internal ingress.
 - Admin/internal services can later require VPN source ranges instead of broad LAN access.
