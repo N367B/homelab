@@ -9,7 +9,7 @@ Many services will be added later. Only the main ones are listed for now.
 | Exposure | Meaning |
 | --- | --- |
 | Public | Reachable from the internet through Caddy |
-| Internal | LAN/VPN only. The domain resolves only via AdGuard split-horizon, with no public DNS record. Caddy refuses non-private source ranges |
+| Internal | LAN/VPN only. AdGuard split-horizon resolves the name to the edge. The public wildcard record resolves it too, but Caddy refuses non-private source ranges |
 
 Default policy: family-facing apps may be Public. Admin and infrastructure tools are Internal. Public exposure must be deliberate.
 

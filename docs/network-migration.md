@@ -15,8 +15,8 @@ Temporary runbook. It is deleted once the migration is done and `network.md` is 
 | --- | --- |
 | Freebox | Factory reset by the owner, then set up by hand: LAN `192.168.7.1/24`, DHCP pool `192.168.7.150` - `192.168.7.250`, Wi-Fi redone with eco mode off |
 | Workstation | DHCP address `192.168.7.x` (WSL bridged) |
-| Edge | `192.168.7.10/24`, gateway `192.168.7.1`, set by the role `network`. Internet, clock, DNS, AdGuard, WireGuard and a restic backup run (local and offsite) checked |
-| Switch | `192.168.7.2/24`, default route `192.168.7.1`, saved in the startup-config, set by `scripts/switch/apply.py` |
+| Edge | `192.168.7.10/24`, gateway `192.168.7.1`, set by the role `network`. Internet, clock, DNS, AdGuard, WireGuard, a restic backup run (local and offsite) and a reboot checked. SSH and DNS limited to the LAN, the lab subnets, the VPN and IPv6 link-local |
+| Switch | `192.168.7.2/24`, default route `192.168.7.1`, running and startup configuration both read back and matching, set by `scripts/switch/apply.py` |
 
 ## Target
 
@@ -30,14 +30,14 @@ Temporary runbook. It is deleted once the migration is done and `network.md` is 
 
 - Every address in docs, inventory, `group_vars`, AdGuard template and examples is `192.168.7.x`.
 - Role `network`: owns `/etc/network/interfaces` (loopback and an include) and `/etc/network/interfaces.d/lan` on the edge. It writes files and changes nothing live.
-- `scripts/net-apply/apply.sh`: moves a node to the address already written on its disk. It arms a timer on the node that puts the old address back after 3 minutes, reloads the interface, then confirms from the new address. A wrong address reverts on its own.
-- `scripts/switch/apply.py`: reads the switch, prints the differences (`make switch-check`) and applies them (`make switch`), then saves the configuration.
+- `scripts/net-apply/apply.sh`: moves a node to the address already written on its disk. It arms a timer on the node that puts the old address, gateway and `lan` file back after 3 minutes, reloads the interface, waits for the reload to finish, then confirms from the target once the address, the default route and a ping outside the subnet check out. A wrong address reverts on its own.
+- `scripts/switch/apply.py`: compares the address, the netmask and the default routes of the running and the startup configuration with the desired state (`make switch-check`), applies the differences and removes extra default routes (`make switch`), then saves and reads the startup-config back. It stops when it cannot read the configuration.
 
 ## Step 1: reach the edge and the switch
 
-Both sat on `192.168.42.0/24` while the workstation is on `192.168.7.0/24`. They share the wire, so IPv6 link-local and the Freebox `/64` prefix reach them with no address on the workstation:
+Both sat on `192.168.42.0/24` while the workstation is on `192.168.7.0/24`. They share the wire, so IPv6 link-local reaches them with no address on the workstation:
 
-- Edge: SSH to its global IPv6 address, for example `make check LIMIT=edge EXTRA="-e ansible_host=<edge-ipv6>"`.
+- Edge: SSH to its IPv6 link-local address (`fe80::` plus the EUI-64 form of its MAC, with `%eth0`), for example `make check LIMIT=edge EXTRA="-e ansible_host=<edge-link-local>%eth0"`. The edge firewall closes SSH on its global IPv6 address.
 - Switch: `SWITCH_HOST='fe80::<eui64-of-its-mac>%eth0' make switch`. The address comes from the switch MAC with the universal/local bit flipped.
 
 Console access works too (HDMI and keyboard on the edge, the console cable on the switch).
@@ -46,8 +46,8 @@ Console access works too (HDMI and keyboard on the edge, the console cable on th
 
 From the workstation:
 
-1. `make check LIMIT=edge EXTRA="--tags network -e ansible_host=<edge-ipv6>"`, then the same with `make deploy`. This writes the two interface files and leaves the live address alone.
-2. `scripts/net-apply/apply.sh noe@<edge-ipv6> noe@192.168.7.10 enp4s0`.
+1. `make check LIMIT=edge EXTRA="--tags network -e ansible_host=<edge-link-local>%eth0"`, then the same with `make deploy`. This writes the two interface files and leaves the live address alone.
+2. `scripts/net-apply/apply.sh noe@<edge-link-local>%eth0 noe@192.168.7.10 enp4s0`.
 3. `make check LIMIT=edge`, read the diff, then `make deploy LIMIT=edge`. It sets DNS, firewall and the AdGuard answers to the new address.
 
 From the console, the same result is the stanza below in `/etc/network/interfaces.d/lan`, with `/etc/network/interfaces` reduced to the loopback and `source /etc/network/interfaces.d/*`, followed by a reboot:
@@ -69,7 +69,7 @@ Checks on the edge:
 - `systemctl start homelab-edge-restic.service` ends with a snapshot in the local and the offsite repository
 - `wg show` lists the peers
 
-Undo: the node reverts alone if it is not confirmed. Afterwards, the previous Git revision and a new converge.
+Undo: a node that is not confirmed within 3 minutes puts back its previous address, gateway and `lan` file by itself. The revert covers one global IPv4 address and one default route. A reboot inside those 3 minutes starts from the new files. To go back after a confirmed change, put the previous values in `edge_nodes.yml`, converge the `network` tag and run `apply.sh` again with the old address as the target.
 
 ## Step 3: switch
 
@@ -89,7 +89,7 @@ write
 y
 ```
 
-Check: `show ip route` lists the default route via `192.168.7.1`, a ping to `1.1.1.1` succeeds and the switch answers from the workstation.
+Check: `make switch-check` reports nothing to change. It compares the running and the startup configuration, so a change that was never saved shows up. Extra default routes are removed by the script.
 
 Notes learnt on this firmware: SSH refuses `exec`, so scripts talk telnet through an interactive session. `config` enters configuration mode from `Switch#`. A `?` at the end of a line is executed. A wrong telnet login locks the console for two minutes. SSH allows one connection at a time.
 
@@ -117,9 +117,10 @@ Check from mobile data: `https://home.<domain>` answers and a WireGuard peer com
 
 ## After the migration
 
-- [ ] WireGuard peers (`phone`, `omnibook`): `AllowedIPs = 192.168.7.0/24, 10.10.0.0/16`, `DNS = 192.168.7.10`
+- [x] Freebox IPv6 prefix firewall: on
+- [x] Edge reboot to prove the configuration survives it
+- [ ] WireGuard peers (`phone`, `omnibook`): `AllowedIPs = 192.168.7.0/24, 10.10.0.0/16, 10.99.0.1/32`, `DNS = 192.168.7.10`
 - [ ] Freebox: review remote API access, WAN ping reply and adblock
-- [ ] Edge reboot to prove the configuration survives it
 - [ ] Remove the old host keys for `10.0.0.10` and `192.168.42.x` from `~/.ssh/known_hosts`
 - [ ] Tick the matching items in `network.md` (Open Items)
 - [ ] Delete this file

@@ -106,7 +106,7 @@ DNS = 192.168.7.10
 [Peer]
 PublicKey = zR64G3SFLAEN1OXATRbM1bOttgArlv3V+xGt9dVZeCI=
 Endpoint = {{ homelab_domain }}:51820
-AllowedIPs = 192.168.7.0/24, 10.10.0.0/16
+AllowedIPs = 192.168.7.0/24, 10.10.0.0/16, 10.99.0.1/32
 PersistentKeepalive = 25
 ```
 
@@ -143,5 +143,5 @@ Peers are masqueraded, so LAN hosts see VPN traffic as coming from `192.168.7.10
 
 - The Freebox forwards `51820/udp` to `192.168.7.10` for external VPN access.
 - AdGuard can be used as DNS over the tunnel via `192.168.7.10`.
-- `AllowedIPs = 192.168.7.0/24, 10.10.0.0/16` covers the main LAN and the routed homelab subnets (see `network.md`), not a broad `10.0.0.0/8`. At home those ranges are the local LAN, so the tunnel would send local traffic out to the public IP and back in through hairpin NAT. Leave the tunnel down on the home network: AdGuard split-horizon already resolves service names to the internal ingress.
+- `AllowedIPs = 192.168.7.0/24, 10.10.0.0/16, 10.99.0.1/32` covers the main LAN, the routed homelab subnets (see `network.md`) and the edge end of the tunnel, not a broad `10.0.0.0/8`. At home those ranges are the local LAN, so the tunnel would send local traffic out to the public IP and back in through hairpin NAT. Leave the tunnel down on the home network: AdGuard split-horizon already resolves service names to the internal ingress.
 - Admin/internal services can later require VPN source ranges instead of broad LAN access.

@@ -49,7 +49,7 @@ apt install -y sudo python3 python3-apt
 
 #### Static IP
 
-The node defaults to DHCP. Give it its fixed address so Ansible can reach it reliably, and so it stays outside the Freebox DHCP pool (`192.168.7.150` - `192.168.7.250`). Find the interface name with `ip -br a`, then write the stanza in `/etc/network/interfaces` (on the edge it lives there, not in `interfaces.d/`):
+The node defaults to DHCP. Give it its fixed address so Ansible can reach it reliably, and so it stays outside the Freebox DHCP pool (`192.168.7.150` - `192.168.7.250`). Find the interface name with `ip -br a`, then write the stanza in `/etc/network/interfaces` for now (the role `network` later moves it to `interfaces.d/lan`):
 
 ```sh
 auto <iface>
@@ -59,7 +59,7 @@ iface <iface> inet static
     dns-nameservers 192.168.7.1
 ```
 
-The mask is `/24` because the Freebox serves a fixed `/24` and is the only router (see `network.md`). Never use `/8`: the host would treat all of `10.x` as on-link instead of sending it to the gateway or a route. Address is per node, with edge at `192.168.7.10/24` and compute at `192.168.7.11/24`, both using gateway `192.168.7.1`. Compute also routes the `10.10.x.x` container subnets, which hosts reach through a static route (see `network.md`). Apply with `systemctl restart networking` or reboot. Ansible can take over this file later.
+The mask is `/24` because the Freebox serves a fixed `/24` and is the only router (see `network.md`). Keep `/24`: every `10.x` destination then goes to the gateway or a route. Address is per node, with edge at `192.168.7.10/24` and compute at `192.168.7.11/24`, both using gateway `192.168.7.1`. Compute also routes the `10.10.x.x` container subnets, which hosts reach through a static route (see `network.md`). Apply with `systemctl restart networking` or reboot. The Ansible role `network` takes it over on the first run and moves the stanza to `/etc/network/interfaces.d/lan` (see `network.md`).
 
 Convert the root filesystem to BTRFS native RAID1 (one-time, ~minutes on a fresh install):
 

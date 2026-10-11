@@ -1,6 +1,6 @@
 # Network Plan
 
-The lab runs on one flat LAN, `192.168.7.0/24`, served by the Freebox. Containers, VMs and app endpoints live in `10.10.0.0/16`, routed by the compute node. WireGuard clients use `10.99.0.0/24`.
+The lab runs on one flat LAN, `192.168.7.0/24`, served by the Freebox. Containers, VMs and app endpoints will live in `10.10.0.0/16`, routed by the compute node once it is deployed. WireGuard clients use `10.99.0.0/24`.
 
 The earlier design used `10.0.0.0/8` split into one `/16` per purpose. It is kept in the history section at the bottom as the target for the day a dedicated router joins the lab.
 
@@ -15,7 +15,7 @@ The move from the previous network to this one is tracked in `network-migration.
 - The Freebox is the single router, the Wi-Fi access point and the DHCP server. If the lab is down, Wi-Fi and internet keep working.
 - The switch forwards frames at L2 and the edge node serves DNS, ingress and VPN. Neither carries routing for the household.
 - Infrastructure has static addresses. Clients get a small DHCP pool. Containers and VMs sit in their own subnets, away from DHCP.
-- Hosts use a `/24` mask. A wider mask would make them look for `10.x` addresses on the local wire instead of using the gateway or a route.
+- Hosts use the `/24` mask of the Freebox LAN, so every `10.x` destination goes through the gateway or a route.
 
 ## The Freebox
 
@@ -48,7 +48,7 @@ The `192.168.7.0/24` block was chosen for its rarity. The usual home blocks (`19
 The `10.10.x.x` subnets are reached through two static routes, both still to be tested with a real routed subnet:
 
 - On the Freebox: `10.10.0.0/16` via the compute node (`192.168.7.11`).
-- On the edge node, owned by Ansible: the same route, so Caddy talks to containers directly on the wire instead of looping through the Freebox.
+- On the edge node, to be managed by Ansible with the compute node: the same route, so Caddy talks to containers directly on the wire instead of looping through the Freebox.
 
 They exist while compute is powered on.
 
@@ -85,12 +85,17 @@ Listed here so they stay visible.
 
 - [ ] Static route `10.10.0.0/16` via compute on the Freebox, and a test of the return path with a real routed subnet
 - [ ] The same route on the edge node (Ansible), and on the admin PC if it reaches containers directly
+- [ ] Home Assistant Shelly integrations still point at the former `10.20.1.10` and `.11`: reconfigure them once the plugs are back on the Wi-Fi
 - [ ] Shelly plugs: fixed address on the device or a Freebox static lease. Freebox leases live outside git, so record them in this file
-- [ ] Freebox IPv6 prefix firewall: turn it on, then open inbound ports one by one when a service needs them
+- [x] Freebox IPv6 prefix firewall: on. Inbound ports open one by one when a service needs them. The edge firewall also limits SSH and DNS to the LAN, the lab subnets, the VPN and IPv6 link-local
 - [ ] Freebox settings to review: remote API access, WAN ping reply, adblock, Wake-on-LAN, default SSID
 - [ ] Throughput of the edge node (2.5G) against the 8G line (see Public Entrypoint)
 - [ ] Switch hardening: admin account and telnet
 - [ ] Fallback DNS handed out by DHCP (see DHCP and Local DNS)
+
+## Edge Network Configuration
+
+The Ansible role `network` owns all network configuration of the edge: `/etc/network/interfaces` holds the loopback and an include, and `/etc/network/interfaces.d/lan` holds the interface, the address, the gateway and the DNS servers. It writes files only. `scripts/net-apply/apply.sh` moves a running node to what the files say, with an automatic revert that also puts the previous file back.
 
 ## DNS and Domains
 
@@ -154,7 +159,7 @@ Some services are expected to be publicly reachable, for example:
 | Immich    | `photos.{{ homelab_domain }}`   | Public candidate |
 | Nextcloud | `cloud.{{ homelab_domain }}`    | Public candidate |
 
-Admin and infrastructure tools (AdGuard, Dockge, the *arr stack, qBittorrent, Ollama API, ...) are internal-only / VPN-only. Their domains resolve via AdGuard split-horizon but get no public DNS record. See `services.md` for the per-service exposure table.
+Admin and infrastructure tools (AdGuard, Dockge, the *arr stack, qBittorrent, Ollama API, ...) are internal-only / VPN-only. Their domains resolve to the edge via AdGuard split-horizon. The public wildcard record resolves them too, and Caddy answers 403 to sources outside the private ranges. See `services.md` for the per-service exposure table.
 
 Final exposure policy should eventually live close to the service definitions, so routing and documentation can be checked from one place.
 
