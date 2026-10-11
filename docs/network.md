@@ -42,8 +42,11 @@ The `192.168.7.0/24` block was chosen for its rarity. The usual home blocks (`19
 | `10.10.20.0/24` | Incus | System containers, routed by compute | Locked, not deployed |
 | `10.10.30.0/24` | VMs | Virtual machines, routed by compute | Locked, not deployed |
 | `10.10.40.0/24` | Apps | Docker endpoints and routed service IPs, routed by compute | Locked, not deployed |
-| `10.99.0.0/24` | VPN | WireGuard remote access clients | Locked |
-| `10.0.0.0/16` | Former core | Kept free, matches the history section | Reserved |
+| `10.99.0.0/16` | Edge zone | Owned by the edge node. The VPN is its first `/24`, the rest is kept for networks the edge may host later (guest VPN, DMZ) | Reserved |
+| `10.99.0.0/24` | VPN | WireGuard remote access clients, inside the edge zone | Locked |
+| `10.0.0.0/16` | Infrastructure of the `/8` plan | Free here, matches the history section | Reserved |
+
+How to read the ranges: the second octet names the purpose (`0` infrastructure, `10` lab, `20` IoT, `99` edge and VPN), and `10.32.0.0/12` is the DHCP space of the `/8` plan. Today all of them live in `192.168.7.0/24`. The infrastructure keeps the last octets of the `/8` plan (`.1` gateway, `.2` switch, `.3` iLO, `.10` edge), so moving it is a prefix change. The IoT devices and the DHCP clients get new addresses in their ranges. Each purpose has one owner: the Freebox for the LAN, the compute node for the lab, the edge node for its zone.
 
 The `10.10.x.x` subnets are reached through two static routes, both still to be tested with a real routed subnet:
 
@@ -52,13 +55,26 @@ The `10.10.x.x` subnets are reached through two static routes, both still to be 
 
 They exist while compute is powered on.
 
+### Lab layout (`10.10.0.0/16`)
+
+| Range | Purpose |
+| --- | --- |
+| `10.10.10.0/24` | Compute host addresses (the `/8` plan used `10.10.10.10` for the host) |
+| `10.10.20.0/24` | Incus |
+| `10.10.30.0/24` | VMs |
+| `10.10.40.0/24` | Apps |
+| `10.10.50.0/24` - `10.10.99.0/24` | Free, first pick for a testing workspace such as k3s |
+| `10.10.100.0/24` and up | Free |
+
+Incus can pick a random `10.x.y.z/24` for its bridge and Docker takes `172.16.0.0/12` ranges. Both get explicit address pools when the compute node is deployed, so they never take a range used in this file.
+
 ## Main LAN Address Map
 
 | Range | Purpose |
 | --- | --- |
 | `192.168.7.1` | Freebox (gateway) |
-| `192.168.7.2` - `.9` | Network gear: switch, iLO, future access points |
-| `192.168.7.10` - `.19` | Core servers |
+| `192.168.7.2` - `.9` | Network gear: `.2` switch, `.3` compute iLO, `.4` UPS network card (when bought), `.5` - `.9` access points and other gear |
+| `192.168.7.10` - `.19` | Core servers. `.10` edge, `.11` compute, `.12` second edge if one is added, `.13` - `.19` free |
 | `192.168.7.20` - `.49` | Fixed smart devices (Shelly plugs, relays) |
 | `192.168.7.50` - `.149` | Reserved for future fixed hosts |
 | `192.168.7.150` - `.250` | DHCP pool, 101 leases: phones, tablets, PCs, console, TV, Freebox Players, guests |
@@ -91,6 +107,9 @@ Listed here so they stay visible.
 - [ ] Freebox settings to review: remote API access, WAN ping reply, adblock, Wake-on-LAN, default SSID
 - [ ] Throughput of the edge node (2.5G) against the 8G line (see Public Entrypoint)
 - [ ] Switch hardening: admin account and telnet
+- [ ] Explicit Incus and Docker address pools when the compute node is deployed
+- [ ] Secondary DNS on the compute node: add `192.168.7.11` to the DHCP DNS list (the Freebox takes up to 4)
+- [ ] Peers for the VPS (WireGuard rendezvous) and other services in `10.99.0.100` - `.199`, recorded in `vpn.md`
 - [ ] Fallback DNS handed out by DHCP (see DHCP and Local DNS)
 
 ## Edge Network Configuration

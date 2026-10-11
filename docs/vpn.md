@@ -18,7 +18,7 @@ Status: plain WireGuard on the edge node.
 
 ## Addressing
 
-The VPN subnet is `10.99.0.0/24`. It stays inside the `10.x` homelab address space but outside every other allocation, so VPN traffic is easy to identify.
+The VPN subnet is `10.99.0.0/24`, the first `/24` of the edge zone `10.99.0.0/16` (see `network.md`). It stays inside the `10.x` homelab address space but outside every other allocation, so VPN traffic is easy to identify.
 
 | Address                   | Purpose                     |
 | ------------------------- | --------------------------- |

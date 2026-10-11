@@ -39,15 +39,14 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 - [ ] Tests for `scripts/net-apply` and `scripts/switch` failure paths (unconfirmed change, netmask drift, failed save, unreadable output)
 - [ ] Role `network` for the compute node, and the `10.10.0.0/16` route on the Freebox and the edge
 - [x] Lock in final subnet plan (the `10.10.1.0` duplicate is fixed in `network.md`: incus `10.10.20.0/24`, vms `10.10.30.0/24`, apps `10.10.40.0/24`)
-- [ ] Configure VLANs on the XikeStor switch (Core / Homelab / IoT / Mgmt)
-- [ ] Decide how to block Freebox IPv6 RAs (switch-level filter? bridge config?)
-- [ ] Run own IPv6 RA from edge node with custom DNS
+- [ ] VLANs (Core / Homelab / IoT / Mgmt): deferred. The Freebox LAN is flat. They come with a dedicated router (target in `network.md`)
+- [ ] IPv6: the Freebox owns RAs, DNS and the prefix firewall (on). Decide later whether to hand out a delegated `/64` to the compute node
 - [ ] Wake-on-LAN: BIOS + OS + edge-side trigger (magic packet from AdGuard/edge)
 - [x] Ansible-manage the static interface config on the edge (role `network`, applied with `scripts/net-apply/apply.sh`)
 - [ ] Same for the compute node once it is installed
 - [x] Internal DNS / split-horizon: public DNS resolves home public IP, AdGuard resolves `*.{{ homelab_domain }}` to edge internally
 - [x] Remote access: plain WireGuard on the edge node. No third-party dependency. Tailscale can be added later if it gets annoying
-- [ ] Firewall scheme (host-level nftables? edge gateway? per-VLAN rules?)
+- [ ] Firewall scheme: host-level nftables per node today (edge done: SSH and DNS limited to private sources). Inter-subnet rules come with the router
 
 ## 4. Identity, routing, TLS
 
