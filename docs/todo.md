@@ -34,7 +34,7 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 ## 3. Network
 
 - [ ] Home Assistant Shelly integrations: reconfigure to `192.168.7.20` and `.21` once the plugs are back on the Wi-Fi
-- [ ] Decide the lab IP layout (second octet per purpose, owner per `/16`, collision risk of `10.10` with other networks) and update `network.md`
+- [x] Lab IP layout: `10.10.0.0/16` for the lab, `10.99.0.0/16` for the edge zone, second octet per purpose (see `network.md`). Revisit only if a VPN client meets a network that also uses `10.10.x.x`
 - [ ] Switch management over SSH instead of Telnet (interactive session works, scripted use untested), then close Telnet
 - [ ] Tests for `scripts/net-apply` and `scripts/switch` failure paths (unconfirmed change, netmask drift, failed save, unreadable output)
 - [ ] Role `network` for the compute node, and the `10.10.0.0/16` route on the Freebox and the edge
