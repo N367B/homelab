@@ -17,23 +17,23 @@ Status: Caddy chosen.
 
 ## Model
 
-All HTTP/HTTPS traffic enters through the edge node at `10.0.0.10`.
+All HTTP/HTTPS traffic enters through the edge node at `192.168.7.10`.
 
 External flow:
 
 1. Public DNS resolves `service.{{ homelab_domain }}` to the home public IP.
-2. Livebox forwards `80/tcp`, `443/tcp`, and `443/udp` to `10.0.0.10`.
+2. The Freebox forwards `80/tcp`, `443/tcp`, and `443/udp` to `192.168.7.10`.
 3. Caddy routes by hostname to private upstreams.
 
 Internal flow:
 
-1. AdGuard resolves `service.{{ homelab_domain }}` to `10.0.0.10`.
+1. AdGuard resolves `service.{{ homelab_domain }}` to `192.168.7.10`.
 2. Caddy receives the same hostname.
 3. Caddy routes to the same private upstream.
 
 Caddy does not need a catch-all `*.{{ homelab_domain }}` site block. Routing should be explicit per service.
 
-HTTP/3 is supported externally. Caddy publishes `443/udp`, the edge firewall allows `443/udp`, and the Livebox should forward UDP 443 alongside TCP 443. Clients that cannot use QUIC fall back to HTTP/2 over TCP.
+HTTP/3 is supported externally. Caddy publishes `443/udp`, the edge firewall allows `443/udp`, and the Freebox should forward UDP 443 alongside TCP 443. Clients that cannot use QUIC fall back to HTTP/2 over TCP.
 
 ## How Caddy Reaches Upstreams
 
@@ -49,7 +49,7 @@ Only Caddy-facing ingress ports are user-facing: `80/tcp`, `443/tcp`, and `443/u
 
 - Edge-local bridged Docker services bind host ports only on `127.0.0.1` when Caddy needs to reach them.
 - Edge-local host-networked services are reached through `127.0.0.1:<port>` because Caddy also uses host networking.
-- Compute services are reached from edge Caddy over private IPs. The compute host firewall should allow those backend ports only from `10.0.0.10`.
+- Compute services are reached from edge Caddy over private IPs. The compute host firewall should allow those backend ports only from `192.168.7.10`.
 - Admin services still require an exposure policy at Caddy (`private_only`, Authentik forward-auth, or native auth), even when their raw ports are blocked.
 
 ## TLS Strategy

@@ -32,7 +32,7 @@ Storage Configuration (Server 1):
 
 ### Server 2: ACEMAGIC AM06 Pro
 
-- Role: Critical services (DHCP / DNS / IPv6 RA / OIDC / VPN / etc.)
+- Role: Critical services (DNS / OIDC / VPN / ingress / etc.)
 - CPU: AMD Ryzen 7 7730U
 - RAM: 32GB DDR4
 - Storage: 512GB Samsung PM9A1 NVMe (with heatsink)
@@ -64,8 +64,8 @@ Storage Configuration (Server 1):
 
 ### Networking
 
-- ISP & Speed: Orange Symmetrical Fiber Optics (8 Gbps Down / 8 Gbps Up)
-- 10G Switch (XikeStor SKS8300-8X) routing
+- ISP & Speed: Free (Freebox Ultra) Symmetrical Fiber Optics (8 Gbps Down / 8 Gbps Up)
+- 10G Switch (XikeStor SKS8300-8X), L2 only. The Freebox is the only router
 - Client Connectivity: All primary devices have 10G NICs
 - Hardware is generally budget Chinese networking gear, but runs reliably for now
 

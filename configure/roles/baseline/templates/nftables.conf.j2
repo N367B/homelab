@@ -25,10 +25,16 @@ table inet homelab_filter {
 {% for source in rule.sources %}
         ip saddr {{ source }} tcp dport {{ rule.port }} accept
 {% endfor %}
+{% for source in rule.sources6 | default([]) %}
+        ip6 saddr {{ source }} tcp dport {{ rule.port }} accept
+{% endfor %}
 {% endfor %}
 {% for rule in firewall_allow_udp | default([]) %}
 {% for source in rule.sources %}
         ip saddr {{ source }} udp dport {{ rule.port }} accept
+{% endfor %}
+{% for source in rule.sources6 | default([]) %}
+        ip6 saddr {{ source }} udp dport {{ rule.port }} accept
 {% endfor %}
 {% endfor %}
     }

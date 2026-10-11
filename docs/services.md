@@ -9,7 +9,7 @@ Many services will be added later. Only the main ones are listed for now.
 | Exposure | Meaning |
 | --- | --- |
 | Public | Reachable from the internet through Caddy |
-| Internal | LAN/VPN only. The domain resolves only via AdGuard split-horizon, with no public DNS record. Caddy refuses non-private source ranges |
+| Internal | LAN/VPN only. AdGuard split-horizon resolves the name to the edge. The public wildcard record resolves it too, but Caddy refuses non-private source ranges |
 
 Default policy: family-facing apps may be Public. Admin and infrastructure tools are Internal. Public exposure must be deliberate.
 
@@ -21,8 +21,8 @@ These services run 24/7 on the edge node and handle network ingress, identity, a
 | --- | --- | --- | --- | --- | --- |
 | Caddy | 80, 443 | - | - | - | Master ingress proxy |
 | Authentik | 9000 | `auth.{{ homelab_domain }}` | Public | Native | SSO Provider (must be public for OIDC redirects from outside) |
-| AdGuard Home | 3000 | `dns.{{ homelab_domain }}` | Internal | Authentik | Internal DNS and DHCP |
-| Dockge (Edge) | 5001 | `edge.{{ homelab_domain }}` | Internal | Authentik | Manages Server 2 stacks |
+| AdGuard Home | 3000 | `dns.{{ homelab_domain }}` | Internal | Native | Internal DNS. Caddy accepts private source ranges only. Authentik forward-auth is planned (commented in the Caddyfile) |
+| Dockge (Edge) | 5001 | `edge.{{ homelab_domain }}` | Internal | Authentik | Planned, not deployed. Manages Server 2 stacks |
 
 ## Media Stack (Server 1 - ML350 Gen9)
 

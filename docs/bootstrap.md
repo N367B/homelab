@@ -12,7 +12,7 @@ Both nodes run Debian 13 Trixie with BTRFS root and `snapper` for upgrade snapsh
 
 - Boot mode: UEFI, CSM disabled
 - Wake-on-LAN: enabled for the primary NIC
-- iLO: static IP `10.0.0.3`, strong password (stored in Proton Pass)
+- iLO: static IP `192.168.7.3`, strong password (stored in Proton Pass)
 
 ### 2. OS install (Debian 13 netinst, manual partitioning)
 
@@ -32,7 +32,7 @@ In the installer:
 - Mount `sda1` at `/boot/efi`. `sdb1` stays as a sync target, handled later by Ansible
 - Install GRUB to `/dev/sda` (the second ESP is populated by Ansible)
 
-The full subvolume layout (`@`, `@home`, `@var`, `@log`, `@snapshots`) is created by Ansible on first run, not by the installer. This keeps the manual step short and the layout in the repo.
+The full subvolume layout (`@`, `@home`, `@var`, `@log`, `@snapshots`) is meant to be created by Ansible. That task and the second ESP sync are still TODO in the baseline role, so do them by hand for now (see `todo.md`).
 
 Software selection: minimal install + `standard system utilities` + `SSH server`. No desktop.
 
@@ -49,17 +49,17 @@ apt install -y sudo python3 python3-apt
 
 #### Static IP
 
-The node defaults to DHCP. Give it its fixed address so Ansible can reach it reliably, and because the edge will later run DHCP itself. Find the interface name with `ip -br a`, then write `/etc/network/interfaces.d/static`:
+The node defaults to DHCP. Give it its fixed address so Ansible can reach it reliably, and so it stays outside the Freebox DHCP pool (`192.168.7.150` - `192.168.7.250`). Find the interface name with `ip -br a`, then write the stanza in `/etc/network/interfaces` for now (the role `network` later moves it to `interfaces.d/lan`):
 
 ```sh
 auto <iface>
 iface <iface> inet static
-    address 10.0.0.10/8
-    gateway 10.0.0.1
-    dns-nameservers 10.0.0.1
+    address 192.168.7.10/24
+    gateway 192.168.7.1
+    dns-nameservers 192.168.7.1
 ```
 
-The mask is `/8` because the network is flat for now, with no VLANs yet. All nodes share one subnet and reach each other directly at L2. The `/16` ranges in `network.md` are future allocation conventions for when VLANs or routing exist, not the current mask. Address is per node, with edge at `10.0.0.10/8` and compute at `10.10.10.10/8`, both using gateway `10.0.0.1`. Apply with `systemctl restart networking` or reboot. Ansible can take over this file later.
+The mask is `/24` because the Freebox serves a fixed `/24` and is the only router (see `network.md`). Keep `/24`: every `10.x` destination then goes to the gateway or a route. Address is per node, with edge at `192.168.7.10/24` and compute at `192.168.7.11/24`, both using gateway `192.168.7.1`. Compute also routes the `10.10.x.x` container subnets, which hosts reach through a static route (see `network.md`). Apply with `systemctl restart networking` or reboot. The Ansible role `network` takes it over on the first run and moves the stanza to `/etc/network/interfaces.d/lan` (see `network.md`).
 
 Convert the root filesystem to BTRFS native RAID1 (one-time, ~minutes on a fresh install):
 
@@ -82,16 +82,10 @@ Passwordless sudo is set up by the baseline role (`/etc/sudoers.d/noe`), not by 
 ### 4. Key injection (from admin workstation)
 
 ```sh
-ssh-copy-id -i ~/.ssh/id_ed25519.pub noe@10.10.10.10
-scp ~/.config/sops/age/keys.txt noe@10.10.10.10:/tmp/age.key
+ssh-copy-id -i ~/.ssh/homelab.pub noe@192.168.7.11
 ```
 
-On the host, move the age key into place (mode 600, owned by the user that will run Ansible):
-
-```sh
-install -m 600 -o noe -g noe -D /tmp/age.key ~/.config/sops/age/keys.txt
-shred -u /tmp/age.key
-```
+The age key stays on the admin workstation: Ansible decrypts the secrets there and sends only the rendered values (see `secrets.md`). A controller hosted on a node would get its own key, limited to the secrets it needs (see `todo.md`).
 
 Ansible takes over from here.
 
@@ -111,7 +105,7 @@ Ansible takes over from here.
 
 ### 2. First boot + key injection
 
-Same as Server 1 steps 3 and 4, but skip the RAID1 conversion because this node has a single drive. The host should be reachable at its planned edge IP `10.0.0.10`.
+Same as Server 1 steps 3 and 4, but skip the RAID1 conversion because this node has a single drive. The host should be reachable at its planned edge IP `192.168.7.10`.
 
 ---
 

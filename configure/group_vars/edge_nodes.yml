@@ -1,11 +1,23 @@
 ---
-# DNS (53), DHCP (67/68), ingress (80/443 + 443/udp HTTP/3).
+# Open to everyone: ingress (80/443 + 443/udp HTTP/3) and WireGuard (51820/udp).
+# SSH and DNS answer the LAN, the routed lab subnets, the VPN and IPv6 link-local only,
+# so a global IPv6 address never exposes them if the ISP-side filter is off.
 # Raw app ports stay closed. Host-networked apps are reached by Caddy over loopback.
-firewall_open_tcp: [22, 53, 80, 443]
-firewall_open_udp: [53, 67, 68, 443, 51820]
+firewall_open_tcp: [80, 443]
+firewall_open_udp: [443, 51820]
+firewall_allow_tcp:
+  - { port: 22, sources: ["192.168.7.0/24", "10.10.0.0/16", "10.99.0.0/24"], sources6: ["fe80::/10"] }
+  - { port: 53, sources: ["192.168.7.0/24", "10.10.0.0/16", "10.99.0.0/24"], sources6: ["fe80::/10"] }
+firewall_allow_udp:
+  - { port: 53, sources: ["192.168.7.0/24", "10.10.0.0/16", "10.99.0.0/24"], sources6: ["fe80::/10"] }
+
+# LAN interface, written by the network role. See docs/network.md.
+lan_interface: enp4s0
+lan_address: 192.168.7.10/24
+lan_gateway: 192.168.7.1
 
 # Edge resolves via the gateway + public fallback, NOT its own AdGuard. The split-horizon rewrite for the homelab domain would hijack Caddy/certmagic zone lookups and break ACME. LAN/public IPs, not 127.0.0.1, let Docker embedded DNS forward.
-dns_nameservers: [10.0.0.1, 1.1.1.1]
+dns_nameservers: [192.168.7.1, 1.1.1.1]
 disable_physical_power_button: true
 
 # Shared external Docker networks are created before stacks deploy, so bridged services like Caddy and Authentik can resolve each other by name.

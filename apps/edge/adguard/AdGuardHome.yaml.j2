@@ -159,10 +159,10 @@ filtering:
   safebrowsing_block_host: standard-block.dns.adguard.com
   rewrites:
     - domain: {{ homelab_domain }}
-      answer: 10.0.0.10
+      answer: 192.168.7.10
       enabled: true
     - domain: '*.{{ homelab_domain }}'
-      answer: 10.0.0.10
+      answer: 192.168.7.10
       enabled: true
   safe_fs_patterns:
     - /opt/adguardhome/work/userfilters/*

@@ -89,7 +89,7 @@ Rules of thumb:
 
 ## Edge Backup: Current Implementation
 
-Status: first local Restic repository implemented for Server 2 (`edge`). This is the first recovery layer, not the final offsite strategy.
+Status: local Restic repository and OVH offsite repository (Tier 1) are live on Server 2 (`edge`). A restore drill and `recovery.md` are still to do.
 
 The edge node backs up to a local Restic repository:
 
@@ -131,7 +131,7 @@ sudo restic -r /var/backups/restic/edge --password-file /root/.config/restic/edg
 sudo restic -r /var/backups/restic/edge --password-file /root/.config/restic/edge-password ls latest
 ```
 
-This local repository protects against bad deploys, accidental deletion, and simple rollback needs. It does not protect against edge disk loss or fire/theft. The next step is to add a second Restic repository or copy target on USB/offsite storage using the same backup sets.
+This local repository protects against bad deploys, accidental deletion, and simple rollback needs. It does not protect against edge disk loss or fire/theft, which the offsite repository below covers.
 
 ## Offsite Backup Direction
 
@@ -145,7 +145,7 @@ Recommended first phase:
 - Keep separate credentials from Caddy/DDNS Cloudflare tokens.
 - Store repository credentials in SOPS.
 
-The Ansible role already has an offsite switch. Once the OVH bucket and S3 credentials exist, set these variables for `edge`:
+The offsite switch is on for `edge` (`edge_restic_offsite_enabled: true`). The variables look like this:
 
 ```yaml
 edge_restic_offsite_enabled: true

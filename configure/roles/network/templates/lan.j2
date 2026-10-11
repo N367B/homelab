@@ -1,0 +1,7 @@
+# Ansible managed (role network)
+allow-hotplug {{ lan_interface }}
+iface {{ lan_interface }} inet static
+	address {{ lan_address }}
+	gateway {{ lan_gateway }}
+	dns-nameservers {{ dns_nameservers | join(' ') }}
+iface {{ lan_interface }} inet6 auto

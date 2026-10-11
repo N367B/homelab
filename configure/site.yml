@@ -19,6 +19,7 @@
         file: "{{ playbook_dir }}/../secrets/environment.sops.yaml"
       no_log: true
   roles:
+    - { role: network, tags: [network] }
     - docker_host
     - compose_stacks
     - edge_backup
