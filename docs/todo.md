@@ -97,7 +97,7 @@ Restic is now the selected backup engine for the first implementation. Edge back
 - [ ] Night shutdown / wake schedule for Server 1 (cron? scripted? manual?)
 - [ ] CI for this repo? (linting ansible/opentofu, ansible --check on PRs, ...)
 - [ ] Tagged releases / rollback strategy for IaC
-- [ ] Idempotence: the AdGuard config task reports a change on every run and restarts the container; the Docker apt key and the UDP buffer sysctls also report drift
+- [ ] Idempotence: the AdGuard config task reports a change on every run and restarts the container; the Docker apt key also reports drift
 - [ ] Package upgrades on the edge (Docker, kernel, libc) in a planned window with a reboot
 
 ## 9. Edge SPOF mitigation

@@ -127,4 +127,4 @@ Check from mobile data: `https://home.<domain>` answers and a WireGuard peer com
 
 ## Kept for later
 
-Package upgrades on the edge (Docker, kernel, libc), drifts found by the dry run (UDP buffer sysctls, the Docker apt key, and the AdGuard config that reports a change on every run and restarts the container), switch hardening and the Freebox static route for `10.10.0.0/16` each get their own window.
+Package upgrades on the edge (Docker, kernel, libc), drifts found by the dry run (the Docker apt key, and the AdGuard config that reports a change on every run and restarts the container), switch hardening and the Freebox static route for `10.10.0.0/16` each get their own window.
