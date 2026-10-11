@@ -21,6 +21,7 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 
 ## 2. Storage
 
+- [ ] Ansible tasks for the BTRFS subvolumes, Snapper, the second ESP sync and GRUB on it. `bootstrap.md` says to do them by hand until then
 - [x] OS boot layout on Server 1: BTRFS native RAID1 over both SSDs (install on one, convert on first boot). See `storage.md` / `bootstrap.md`
 - [ ] Define ZFS dataset tree for `fast` pool (apps, databases, caches, ...)
 - [ ] Define ZFS dataset tree for `bulk` pool (media, immich, nextcloud, archives, ...)
@@ -32,6 +33,11 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 
 ## 3. Network
 
+- [ ] Home Assistant Shelly integrations: reconfigure to `192.168.7.20` and `.21` once the plugs are back on the Wi-Fi
+- [ ] Decide the lab IP layout (second octet per purpose, owner per `/16`, collision risk of `10.10` with other networks) and update `network.md`
+- [ ] Switch management over SSH instead of Telnet (interactive session works, scripted use untested), then close Telnet
+- [ ] Tests for `scripts/net-apply` and `scripts/switch` failure paths (unconfirmed change, netmask drift, failed save, unreadable output)
+- [ ] Role `network` for the compute node, and the `10.10.0.0/16` route on the Freebox and the edge
 - [x] Lock in final subnet plan (the `10.10.1.0` duplicate is fixed in `network.md`: incus `10.10.20.0/24`, vms `10.10.30.0/24`, apps `10.10.40.0/24`)
 - [ ] Configure VLANs on the XikeStor switch (Core / Homelab / IoT / Mgmt)
 - [ ] Decide how to block Freebox IPv6 RAs (switch-level filter? bridge config?)
@@ -59,7 +65,8 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 - [ ] Define the workflow for adding a new secret
 - [ ] Define rotation policy
 - [x] Master/recovery key: Proton Pass + offline paper backup (see 0.)
-- [x] Bootstrap chicken-and-egg: `scp` the age key from the admin workstation during Day 0 (documented in `bootstrap.md` step 4)
+- [x] Bootstrap: the age key stays on the admin workstation, secrets are decrypted there
+- [ ] Remove the age key that is still on the edge (`~/.config/sops/age/keys.txt`, copied by the old bootstrap). Nothing on the edge needs it today. The planned drift controller gets its own key, limited to its scopes in `.sops.yaml`
 
 ## 6. Observability (currently nothing planned)
 
@@ -72,10 +79,11 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 
 ## 7. Backup & recovery
 
-Restic is now the selected backup engine for the first implementation. Local edge backups are live. Offsite target and compute backup details are still open.
+Restic is now the selected backup engine for the first implementation. Edge backups are live, local and offsite (Tier 1). Compute backup details and a restore drill are still open.
 
 - [x] Backup tool: Restic for the first implementation
-- [ ] Offsite target: undecided. Options include Backblaze B2, Cloudflare R2, Scaleway, Hetzner, and AWS. Pick once Tier 1/2 sizes and monthly cost are known
+- [x] Offsite target for Tier 1 edge state: OVH Object Storage, live
+- [ ] Offsite target for Tier 2 (compute data): undecided, pick once sizes and monthly cost are known
 - [ ] Rclone sync strategy per source (one-way vs bidi)
 - [ ] Write `recovery.md` with literal restore steps from cold cloud
 - [ ] Schedule a yearly restore drill
@@ -90,6 +98,8 @@ Restic is now the selected backup engine for the first implementation. Local edg
 - [ ] Night shutdown / wake schedule for Server 1 (cron? scripted? manual?)
 - [ ] CI for this repo? (linting ansible/opentofu, ansible --check on PRs, ...)
 - [ ] Tagged releases / rollback strategy for IaC
+- [ ] Idempotence: the AdGuard config task reports a change on every run and restarts the container; the Docker apt key and the UDP buffer sysctls also report drift
+- [ ] Package upgrades on the edge (Docker, kernel, libc) in a planned window with a reboot
 
 ## 9. Edge SPOF mitigation
 
@@ -103,6 +113,7 @@ Restic is now the selected backup engine for the first implementation. Local edg
 
 - [ ] Gluetun kill-switch health check for qBittorrent
 - [ ] iLO firmware fan control issue (workaround or accept)
+- [ ] Fan controller `scripts/ml350_fan_controller/ml350_fan.py`: when the CPU temperature is missing it keeps the last or the fallback PWM and ignores the GPU, NVMe, aux and disk readings, so it can lower the floor while a sensor reads hot. Keep the demand of the available sensors and combine it with the fallback minimum. Separate PR, before trusting it under load
 - [ ] Fill in `services.md` as services come online (ports, auth, notes)
 - [ ] Fill in all the `TODO` placeholders scattered across `docs/`
 - [ ] Diagram: network topology (one clear PNG/SVG)

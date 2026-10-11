@@ -32,7 +32,7 @@ In the installer:
 - Mount `sda1` at `/boot/efi`. `sdb1` stays as a sync target, handled later by Ansible
 - Install GRUB to `/dev/sda` (the second ESP is populated by Ansible)
 
-The full subvolume layout (`@`, `@home`, `@var`, `@log`, `@snapshots`) is created by Ansible on first run, not by the installer. This keeps the manual step short and the layout in the repo.
+The full subvolume layout (`@`, `@home`, `@var`, `@log`, `@snapshots`) is meant to be created by Ansible. That task and the second ESP sync are still TODO in the baseline role, so do them by hand for now (see `todo.md`).
 
 Software selection: minimal install + `standard system utilities` + `SSH server`. No desktop.
 
@@ -82,16 +82,10 @@ Passwordless sudo is set up by the baseline role (`/etc/sudoers.d/noe`), not by 
 ### 4. Key injection (from admin workstation)
 
 ```sh
-ssh-copy-id -i ~/.ssh/id_ed25519.pub noe@192.168.7.11
-scp ~/.config/sops/age/keys.txt noe@192.168.7.11:/tmp/age.key
+ssh-copy-id -i ~/.ssh/homelab.pub noe@192.168.7.11
 ```
 
-On the host, move the age key into place (mode 600, owned by the user that will run Ansible):
-
-```sh
-install -m 600 -o noe -g noe -D /tmp/age.key ~/.config/sops/age/keys.txt
-shred -u /tmp/age.key
-```
+The age key stays on the admin workstation: Ansible decrypts the secrets there and sends only the rendered values (see `secrets.md`). A controller hosted on a node would get its own key, limited to the secrets it needs (see `todo.md`).
 
 Ansible takes over from here.
 
