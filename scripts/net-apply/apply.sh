@@ -3,19 +3,27 @@
 # locking it out.
 #
 #   apply.sh <ssh-target-now> <ssh-target-after> <interface>
-#   apply.sh noe@192.168.42.10 noe@192.168.7.10 enp4s0
+#   apply.sh noe@<old-address> noe@192.168.7.10 enp4s0
 #
 # 1. A timer is armed on the node. After 3 minutes it puts the previous address
-#    and default route back, unless the node was confirmed from its new address.
+#    and default route back, in the kernel and in /etc/network/interfaces.d/lan,
+#    unless the node was confirmed.
 # 2. The node reloads its interface from /etc/network/interfaces.d/lan.
-# 3. This script connects to the new address and creates the confirmation file,
-#    which cancels the revert.
+# 3. This script connects to the target and waits for the reload to finish. It
+#    checks the address, the default route and a ping outside the subnet
+#    (CHECK_HOST, default 1.1.1.1), then creates the confirmation file, which
+#    cancels the revert.
 #
-# The workstation needs to reach the new address first (its own network configuration, see docs/network-migration.md).
+# The revert covers one global IPv4 address and one default route, which is what
+# the edge has. It does not survive a reboot during the 3 minutes: the files on
+# disk are the new ones until the timer fires.
+#
+# The workstation needs to reach the new address first (see docs/network-migration.md).
 set -euo pipefail
-[ $# -eq 3 ] || { sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[ $# -eq 3 ] || { sed -n '2,21p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 now=$1; after=$2; iface=$3
 key=${SSH_KEY:-$HOME/.ssh/homelab}
+check_host=${CHECK_HOST:-1.1.1.1}
 ssh_opts=(-i "$key" -o BatchMode=yes -o ConnectTimeout=6 -o StrictHostKeyChecking=accept-new)
 
 echo "arming the revert on $now"
@@ -23,29 +31,56 @@ ssh "${ssh_opts[@]}" "$now" "IFACE=$iface bash -s" <<'REMOTE'
 set -euo pipefail
 old_addr=$(ip -4 -o addr show dev "$IFACE" scope global | awk '{print $4}' | head -n1)
 old_gw=$(ip -4 route show default dev "$IFACE" | awk '{print $3}' | head -n1)
-sudo rm -f /run/homelab-net-keep
-sudo systemctl stop homelab-net-revert.timer homelab-net-revert.service 2>/dev/null || true
-sudo systemd-run --quiet --unit=homelab-net-revert --on-active=180 /bin/sh -c "
-  [ -e /run/homelab-net-keep ] && exit 0
-  ip -4 addr flush dev $IFACE
-  ip -4 route flush default dev $IFACE
-  ip addr add $old_addr dev $IFACE
-  ip route replace default via $old_gw dev $IFACE"
-# The session ends when the address changes, so the reload runs detached.
-sudo systemd-run --quiet --unit=homelab-net-apply --on-active=2 /bin/sh -c "
-  ip -4 addr flush dev $IFACE
-  ip -4 route flush default dev $IFACE
-  ifup --force $IFACE"
+[ -n "$old_addr" ] && [ -n "$old_gw" ] || { echo "no global IPv4 address or default route on $IFACE" >&2; exit 1; }
+sudo systemctl stop homelab-net-revert.timer homelab-net-revert.service homelab-net-apply.timer homelab-net-apply.service 2>/dev/null || true
+sudo systemctl reset-failed 'homelab-net-*' 2>/dev/null || true
+sudo rm -f /run/homelab-net-keep /run/homelab-net-apply.status
+
+sudo tee /run/homelab-net-revert.sh >/dev/null <<EOF
+#!/bin/sh
+[ -e /run/homelab-net-keep ] && exit 0
+dns=\$(grep -m1 dns-nameservers /etc/network/interfaces.d/lan)
+printf '%s\n' '# Ansible managed (role network)' 'allow-hotplug $IFACE' 'iface $IFACE inet static' \
+  '	address $old_addr' '	gateway $old_gw' "\$dns" 'iface $IFACE inet6 auto' > /etc/network/interfaces.d/lan
+ip -4 addr flush dev $IFACE
+ip -4 route flush default dev $IFACE
+ip addr add $old_addr dev $IFACE
+ip route replace default via $old_gw dev $IFACE
+EOF
+
+# The session ends when the address changes, so the reload runs detached and
+# records how it ended.
+sudo tee /run/homelab-net-apply.sh >/dev/null <<EOF
+#!/bin/sh
+ip -4 addr flush dev $IFACE
+ip -4 route flush default dev $IFACE
+ifup --force $IFACE
+echo \$? > /run/homelab-net-apply.status
+EOF
+sudo chmod 600 /run/homelab-net-revert.sh /run/homelab-net-apply.sh
+sudo systemd-run --quiet --unit=homelab-net-revert --on-active=180 /bin/sh /run/homelab-net-revert.sh
+sudo systemd-run --quiet --unit=homelab-net-apply --on-active=2 /bin/sh /run/homelab-net-apply.sh
 echo "revert armed ($old_addr via $old_gw), reload scheduled"
 REMOTE
 
 echo "waiting for the node at $after"
+last="no answer"
 for _ in $(seq 1 30); do
-  if ssh "${ssh_opts[@]}" "$after" 'sudo touch /run/homelab-net-keep' 2>/dev/null; then
-    echo "confirmed from $after, the revert is cancelled"
+  if out=$(ssh "${ssh_opts[@]}" "$after" "IFACE=$iface CHECK_HOST=$check_host bash -s" 2>&1 <<'REMOTE'
+[ "$(cat /run/homelab-net-apply.status 2>/dev/null)" = 0 ] || { echo "reload not finished or failed"; exit 3; }
+want_addr=$(awk '$1=="address"{print $2}' /etc/network/interfaces.d/lan)
+want_gw=$(awk '$1=="gateway"{print $2}' /etc/network/interfaces.d/lan)
+ip -4 -o addr show dev "$IFACE" | grep -qw "$want_addr" || { echo "address $want_addr missing"; exit 4; }
+ip -4 route show default | grep -q "via $want_gw" || { echo "default route via $want_gw missing"; exit 5; }
+ping -c2 -W3 "$CHECK_HOST" >/dev/null || { echo "no reply from $CHECK_HOST"; exit 6; }
+sudo touch /run/homelab-net-keep
+REMOTE
+  ); then
+    echo "confirmed from $after: address, route and $check_host checked, the revert is cancelled"
     exit 0
   fi
+  last=${out:-no answer}
   sleep 3
 done
-echo "no answer from $after: the node reverts to its previous address on its own" >&2
+echo "not confirmed ($last): the node reverts to its previous address on its own" >&2
 exit 1

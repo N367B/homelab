@@ -1,9 +1,13 @@
 #!/usr/bin/env python3
-"""Bring the switch management address and default route to the state in
+"""Bring the switch management address, netmask and default route to the state in
 configure/group_vars/switch.yml, then save the configuration.
 
   apply.py --check     print what differs, change nothing
   apply.py             change what differs and write the startup-config
+
+The running and the startup configuration are both compared to the desired state.
+Extra default routes are removed. The run succeeds only when the startup-config,
+read back after `write`, matches.
 
 The credentials are SWITCH_USER and SWITCH_PASS from the environment. The switch
 is found at its desired address first, then at the addresses in SWITCH_HOST
@@ -69,12 +73,47 @@ def reachable(host):
         return False
 
 
+def netmask(prefix):
+    bits = (0xFFFFFFFF << (32 - int(prefix))) & 0xFFFFFFFF
+    return ".".join(str((bits >> shift) & 255) for shift in (24, 16, 8, 0))
+
+
+def show(session, command):
+    out = session.send(command, 3)
+    for _ in range(40):
+        if "--More--" not in out[-40:]:
+            break
+        out += session.send(" ", 1)
+    return out.replace("\r", "")
+
+
+def parse_config(text, name):
+    addr = re.search(r"interface Vlan1\s+ip address (\d+\.\d+\.\d+\.\d+) (\d+\.\d+\.\d+\.\d+)", text, re.I)
+    if not addr or "end" not in text:
+        sys.exit(f"cannot read the {name} configuration; nothing was changed")
+    return {
+        "address": addr.group(1),
+        "netmask": addr.group(2),
+        "routes": sorted(re.findall(r"^ip route 0\.0\.0\.0/0 (\d+\.\d+\.\d+\.\d+)", text, re.M)),
+    }
+
+
 def read_state(session):
-    brief = session.send("show ip interface brief", 2)
-    route = session.send("show ip route", 2)
-    addr = re.search(r"Vlan1\s+(\d+\.\d+\.\d+\.\d+)", brief)
-    gw = re.search(r"0\.0\.0\.0/0 \[\d+/\d+\] via (\d+\.\d+\.\d+\.\d+)", route)
-    return {"address": addr.group(1) if addr else None, "gateway": gw.group(1) if gw else None}
+    show(session, "terminal length 0")
+    return {
+        "running": parse_config(show(session, "show running-config"), "running"),
+        "startup": parse_config(show(session, "show startup-config"), "startup"),
+    }
+
+
+def differences(state, want):
+    wanted = {"address": want["address"], "netmask": want["netmask"], "routes": [want["gateway"]]}
+    found = []
+    for which in ("running", "startup"):
+        for key, value in wanted.items():
+            if state[which][key] != value:
+                found.append((f"{which} {key}", state[which][key], value))
+    return found
 
 
 def connect(candidates):
@@ -95,12 +134,12 @@ def main():
     want = yaml.safe_load(STATE.read_text())["switch"]
     extra = [h for h in os.environ.get("SWITCH_HOST", "").split(",") if h]
     host, session = connect([want["address"]] + extra)
-    now = read_state(session)
+    state = read_state(session)
     print(f"Switch answers at {host}")
-    changes = [(k, now[k], want[k]) for k in ("address", "gateway") if now[k] != want[k]]
+    changes = differences(state, want)
     for key, old, new in changes:
         print(f"  {key}: {old} -> {new}")
-    if not changes:
+    if not changes and state["running"] == state["startup"]:
         print("  nothing to change")
         session.close()
         return
@@ -108,12 +147,12 @@ def main():
         session.close()
         return
 
-    if now["address"] != want["address"]:
+    running = state["running"]
+    if running["address"] != want["address"]:
         session.send("config")
         session.send("interface vlan 1")
         session.send(f"ip address {want['address']} {want['netmask']}", 1)
         session.close()
-        host, session = None, None
         for _ in range(20):
             time.sleep(3)
             if reachable(want["address"]):
@@ -122,21 +161,31 @@ def main():
             sys.exit(f"switch not reachable at {want['address']}; reach that subnet from the workstation "
                      "(workstation network configuration) and run again")
         host, session = connect([want["address"]])
-        now = read_state(session)
+        state = read_state(session)
+        running = state["running"]
 
     session.send("config")
-    if now["gateway"] and now["gateway"] != want["gateway"]:
-        session.send(f"no ip route 0.0.0.0/0 {now['gateway']}")
-    if now["gateway"] != want["gateway"]:
+    if running["netmask"] != want["netmask"]:
+        session.send("interface vlan 1")
+        session.send(f"ip address {want['address']} {want['netmask']}", 1)
+        session.send("exit")
+    for gateway in running["routes"]:
+        if gateway != want["gateway"]:
+            session.send(f"no ip route 0.0.0.0/0 {gateway}")
+    if want["gateway"] not in running["routes"]:
         session.send(f"ip route 0.0.0.0/0 {want['gateway']}")
     session.send("end")
     session.send("write", 1.5)
     session.send("y", 4)
     final = read_state(session)
     session.close()
-    ok = all(final[k] == want[k] for k in ("address", "gateway"))
-    print("Result:", "matches the desired state and is saved" if ok else f"still differs: {final}")
-    sys.exit(0 if ok else 1)
+    left = differences(final, want)
+    if left:
+        print("Result: still differs:")
+        for key, old, new in left:
+            print(f"  {key}: {old} (wanted {new})")
+        sys.exit(1)
+    print("Result: running and startup configuration match the desired state")
 
 
 if __name__ == "__main__":
