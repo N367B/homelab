@@ -12,8 +12,9 @@
 # 3. This script connects to the target and waits for the reload to finish. It
 #    checks the address, the default route and a ping outside the subnet
 #    (CHECK_HOST, default 1.1.1.1) against the values frozen when the revert was
-#    armed, then creates the confirmation file, which cancels the revert. Once the
-#    revert has run, no confirmation is accepted.
+#    armed, then creates the confirmation file, which cancels the revert. The
+#    confirmation and the revert take the same lock, so only one of them decides:
+#    once the revert has run, no confirmation is accepted.
 #
 # The revert covers one global IPv4 address and one default route, which is what
 # the edge has. It rebuilds interfaces.d/lan from the previous address, the
@@ -23,7 +24,7 @@
 #
 # The workstation needs to reach the new address first (see docs/network-migration.md).
 set -euo pipefail
-[ $# -eq 3 ] || { sed -n '2,26p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
+[ $# -eq 3 ] || { sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 now=$1; after=$2; iface=$3
 key=${SSH_KEY:-$HOME/.ssh/homelab}
 check_host=${CHECK_HOST:-1.1.1.1}
@@ -43,6 +44,9 @@ awk '$1=="address"||$1=="gateway"{print $1, $2}' /etc/network/interfaces.d/lan |
 
 sudo tee /run/homelab-net-revert.sh >/dev/null <<EOF
 #!/bin/sh
+# Same lock as the confirmation: only one of the two decides.
+exec 9>/run/homelab-net.lock
+flock 9
 [ -e /run/homelab-net-keep ] && exit 0
 touch /run/homelab-net-reverted
 dns=\$(grep -m1 dns-nameservers /etc/network/interfaces.d/lan)
@@ -81,7 +85,7 @@ want_gw=$(awk '$1=="gateway"{print $2}' /run/homelab-net-target)
 ip -4 -o addr show dev "$IFACE" | grep -qw "$want_addr" || { echo "address $want_addr missing"; exit 4; }
 ip -4 route show default | grep -q "via $want_gw" || { echo "default route via $want_gw missing"; exit 5; }
 ping -c2 -W3 "$CHECK_HOST" >/dev/null || { echo "no reply from $CHECK_HOST"; exit 6; }
-sudo touch /run/homelab-net-keep
+sudo flock /run/homelab-net.lock sh -c '[ ! -e /run/homelab-net-reverted ] && touch /run/homelab-net-keep' || { echo "the revert already ran"; exit 7; }
 REMOTE
   ) || rc=$?
   if [ "$rc" = 0 ]; then
