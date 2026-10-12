@@ -22,7 +22,7 @@
 # copy of the old file. It does not survive a reboot during the 3 minutes: the
 # files on disk are the new ones until the timer fires.
 #
-# The workstation needs to reach the new address first (see docs/network-migration.md).
+# The workstation needs to reach the new address first (IPv6 link-local works, see docs/network.md).
 set -euo pipefail
 [ $# -eq 3 ] || { sed -n '2,27p' "$0" | sed 's/^# \{0,1\}//'; exit 2; }
 now=$1; after=$2; iface=$3

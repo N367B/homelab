@@ -6,7 +6,6 @@ The earlier design used `10.0.0.0/8` split into one `/16` per purpose. It is kep
 
 Public addresses are not tracked here. They change over time and do not need to live in the repo.
 
-The move from the previous network to this one is tracked in `network-migration.md`.
 
 ---
 
@@ -115,6 +114,23 @@ Listed here so they stay visible.
 ## Edge Network Configuration
 
 The Ansible role `network` owns all network configuration of the edge: `/etc/network/interfaces` holds the loopback and an include, and `/etc/network/interfaces.d/lan` holds the interface, the address, the gateway and the DNS servers. It writes files only. `scripts/net-apply/apply.sh` moves a running node to what the files say, with an automatic revert that also puts the previous file back.
+
+## Re-addressing a Node
+
+When a node must move to another subnet, the workstation may not share it. Both the edge and the switch are reached with no address change on the workstation by IPv6 link-local (`fe80::` plus the EUI-64 form of the MAC, with `%eth0`). The edge firewall accepts SSH from link-local.
+
+Edge:
+
+1. Change `lan_address` and `lan_gateway` in `configure/group_vars/edge_nodes.yml`.
+2. `make deploy LIMIT=edge EXTRA="--tags network -e ansible_host=<edge-link-local>%eth0"` writes the interface files and leaves the live address alone.
+3. `scripts/net-apply/apply.sh noe@<edge-link-local>%eth0 noe@<new-address> enp4s0` moves the node. It arms a revert that puts the previous address, gateway and `lan` file back after 3 minutes, waits for the reload, checks the address, the default route and a ping outside the subnet, then confirms. It refuses to confirm once the revert has run.
+4. `make deploy LIMIT=edge` converges DNS, firewall and the AdGuard answers.
+
+Console fallback: write the stanza of `/etc/network/interfaces.d/lan` by hand, keep `/etc/network/interfaces` to the loopback and `source /etc/network/interfaces.d/*`, then reboot.
+
+Switch: set the address, netmask and gateway in `configure/group_vars/switch.yml`, then `SWITCH_HOST='fe80::<eui64-of-its-mac>%eth0' make switch-check` and `make switch`. The credentials come from `SWITCH_USER` and `SWITCH_PASS`. The script compares the running and the startup configuration, removes extra default routes, saves, and reads the startup-config back.
+
+Firmware notes for the switch: SSH refuses `exec`, so scripts talk Telnet through an interactive session. `config` enters configuration mode from `Switch#`. A `?` at the end of a line is executed, not shown as help. `write` asks for `y`. A wrong login locks the console for two minutes and SSH allows one connection at a time, so the script logs in once per run. `ip address ... secondary` is not supported.
 
 ## DNS and Domains
 
