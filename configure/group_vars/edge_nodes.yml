@@ -85,3 +85,11 @@ wireguard_peers:
     address: 10.99.0.12/32
     public_key: wPOg3iL7Hc8iYQRL8T7x4A6MNRR8ZWIj0jGFa624VgU=
     persistent_keepalive: 25
+
+# UPS on the edge USB port (HPE T1500 G5, Eaton/MGE). upsd listens on loopback only,
+# so the upsmon password never leaves the host.
+nut_ups_name: ups
+nut_ups_desc: HPE T1500 G5
+nut_usb_vendorid: "0463"
+nut_usb_productid: "FFFF"
+nut_upsmon_password: upsmon-loopback

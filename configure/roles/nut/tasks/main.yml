@@ -1,0 +1,60 @@
+---
+- name: Install NUT
+  ansible.builtin.apt:
+    name: nut
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  notify: Apply NUT udev rules
+
+- name: Set NUT to standalone mode
+  ansible.builtin.copy:
+    dest: /etc/nut/nut.conf
+    content: "MODE=standalone\n"
+    owner: root
+    group: nut
+    mode: "0640"
+  notify: Restart NUT
+
+- name: Render NUT config
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/nut/{{ item }}"
+    owner: root
+    group: nut
+    mode: "0640"
+  loop:
+    - ups.conf
+    - upsd.conf
+    - upsd.users
+    - upsmon.conf
+  notify: Restart NUT
+
+- name: Enable NUT
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - nut-server
+    - nut-monitor
+
+# One line per minute in the journal, to see when the UPS changes state.
+- name: Render UPS log units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - homelab-ups-log.service
+    - homelab-ups-log.timer
+  notify: Reload systemd
+
+- name: Enable UPS log timer
+  ansible.builtin.systemd_service:
+    name: homelab-ups-log.timer
+    enabled: true
+    state: started
+    daemon_reload: true
