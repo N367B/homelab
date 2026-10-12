@@ -1,0 +1,19 @@
+---
+- name: Restart NUT
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    state: restarted
+  loop:
+    - nut-driver-enumerator
+    - nut-server
+    - nut-monitor
+
+# The packaged rule gives the nut group access to the UPS, but only for devices
+# plugged in afterwards. Replay the add events for the one already connected.
+- name: Apply NUT udev rules
+  ansible.builtin.command: udevadm trigger --subsystem-match=usb --action=add
+  changed_when: true
+
+- name: Reload systemd
+  ansible.builtin.systemd_service:
+    daemon_reload: true
