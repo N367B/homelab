@@ -14,11 +14,12 @@ sudo apt update && sudo apt install -y make git python3 python3-pip ansible wire
 
 ### Install SOPS
 
-Install the Renovate-managed version of `sops` (`v3.13.3`):
+Install the version Renovate keeps in `sops_version` of `configure/group_vars/all.yml`:
 
 ```sh
-curl -LO https://github.com/getsops/sops/releases/download/v3.13.3/sops-v3.13.3.linux.amd64
-sudo mv sops-v3.13.3.linux.amd64 /usr/local/bin/sops
+V=$(awk '/^sops_version:/ {print $2}' configure/group_vars/all.yml)
+curl -LO https://github.com/getsops/sops/releases/download/$V/sops-$V.linux.amd64
+sudo mv sops-$V.linux.amd64 /usr/local/bin/sops
 sudo chmod +x /usr/local/bin/sops
 ```
 

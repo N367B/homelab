@@ -97,6 +97,8 @@ Restic is now the selected backup engine for the first implementation. Edge back
 - [ ] Night shutdown / wake schedule for Server 1 (cron? scripted? manual?)
 - [ ] CI for this repo? (linting ansible/opentofu, ansible --check on PRs, ...)
 - [ ] Tagged releases / rollback strategy for IaC
+- [ ] Automatic OS updates on the edge (unattended-upgrades for the Docker repo, night reboot after the backup) with a notification on every automatic reboot, so an outage can be explained. Not on the compute node (ZFS, GPU)
+- [ ] Firmware and OS to review every quarter, recording the version here: XikeStor switch, Freebox OS, iLO and BIOS of the ML350, Shelly plugs. Debian itself is a manual major upgrade
 - [ ] Idempotence: the AdGuard config task reports a change on every run and restarts the container; the Docker apt key also reports drift
 - [ ] Package upgrades on the edge (Docker, kernel, libc) in a planned window with a reboot
 
@@ -111,6 +113,7 @@ Restic is now the selected backup engine for the first implementation. Edge back
 ## 10. Polish / smaller items
 
 - [ ] Gluetun kill-switch health check for qBittorrent
+- [ ] Home Assistant logs a Bluetooth permission error every minute (`Missing NET_ADMIN/NET_RAW`): disable the integration or give the container the capabilities
 - [ ] iLO firmware fan control issue (workaround or accept)
 - [ ] Fan controller `scripts/ml350_fan_controller/ml350_fan.py`: when the CPU temperature is missing it keeps the last or the fallback PWM and ignores the GPU, NVMe, aux and disk readings, so it can lower the floor while a sensor reads hot. Keep the demand of the available sensors and combine it with the fallback minimum. Separate PR, before trusting it under load
 - [ ] Fill in `services.md` as services come online (ports, auth, notes)
