@@ -1,6 +1,9 @@
 # Ansible managed (role nut)
 MONITOR {{ nut_ups_name }}@localhost 1 upsmon {{ nut_upsmon_password }} primary
 MINSUPPLIES 1
+# The UPS can sit in "OFF" (outputs cut, still on the mains). By default upsmon treats
+# that as a lost feed after 30 s and shuts the host down. Only a low battery should.
+OFFDURATION -1
 SHUTDOWNCMD "/sbin/shutdown -h +0"
 POLLFREQ 5
 POLLFREQALERT 5
