@@ -1,6 +1,6 @@
 services:
   adguard:
-    image: adguard/adguardhome:v0.107.78
+    image: adguard/adguardhome:v0.107.79
     container_name: adguard
     restart: unless-stopped
     # Host networking: required for DHCP broadcast + real client IPs.
