@@ -26,6 +26,7 @@ baseline_packages:
   - btop
   - micro
   - fzf
+  - inxi
 # sops and grub-btrfs come from upstream releases (baseline role), not apt
 # renovate: datasource=github-releases depName=getsops/sops
 sops_version: v3.13.3
