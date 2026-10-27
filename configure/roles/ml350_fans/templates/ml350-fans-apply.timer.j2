@@ -1,0 +1,13 @@
+# Ansible managed (role ml350_fans)
+# The iLO drops the tuning on every iLO reset and host reboot. Pushing it every
+# 5 minutes bounds how long the stock tuning (CPU up to about 97 C) stays active.
+[Unit]
+Description=Push the ML350 iLO cooling tuning every 5 minutes
+
+[Timer]
+OnBootSec=30s
+OnUnitActiveSec=5min
+AccuracySec=5s
+
+[Install]
+WantedBy=timers.target

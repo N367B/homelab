@@ -13,6 +13,7 @@ Both nodes run Debian 13 Trixie with BTRFS root and `snapper` for upgrade snapsh
 - Boot mode: UEFI, CSM disabled
 - Wake-on-LAN: enabled for the primary NIC
 - iLO: static IP `192.168.7.3`, strong password (stored in Proton Pass)
+- iLO account `fanctl` with its SSH key, used by the cooling role. It survives an OS reinstall but not an iLO factory reset (see `cooling.md`)
 
 ### 2. OS install (Debian 13 netinst, manual partitioning)
 

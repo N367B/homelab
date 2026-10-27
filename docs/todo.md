@@ -116,8 +116,9 @@ Restic is now the selected backup engine for the first implementation. Edge back
 
 - [ ] Gluetun kill-switch health check for qBittorrent
 - [ ] Home Assistant logs a Bluetooth permission error every minute (`Missing NET_ADMIN/NET_RAW`): disable the integration or give the container the capabilities
-- [ ] iLO firmware fan control issue (workaround or accept)
-- [ ] Fan controller `scripts/ml350_fan_controller/ml350_fan.py`: when the CPU temperature is missing it keeps the last or the fallback PWM and ignores the GPU, NVMe, aux and disk readings, so it can lower the floor while a sensor reads hot. Keep the demand of the available sensors and combine it with the fallback minimum. Separate PR, before trusting it under load
+- [x] ML350 cooling: iLO tuning plus host agent, role `ml350_fans` (see [cooling.md](cooling.md))
+- [ ] ML350 cooling: deploy the apply timer on the edge, and run a long soak (24 h of mixed load) with the agent active
+- [ ] ML350 cooling: alert when the agent logs `[crit]` or cannot reach the iLO, once an alerting target exists
 - [ ] Fill in `services.md` as services come online (ports, auth, notes)
 - [ ] Fill in all the `TODO` placeholders scattered across `docs/`
 - [ ] Diagram: network topology (one clear PNG/SVG)

@@ -1,0 +1,35 @@
+---
+# agent: compute node, reads host sensors and pushes tuning + fan floor.
+# apply: any other host on the LAN (the edge), pushes the tuning every 5 minutes so it comes back
+# after an iLO reset or a host reboot even when the compute node is down or cut off.
+ml350_fans_mode: apply
+
+ml350_fans_ilo_host: 192.168.7.3
+ml350_fans_ilo_user: fanctl
+
+# iLO PID setpoints, in hundredths of a degree. PIDs 1 and 2 regulate CPU 1 and CPU 2 on the
+# PECI margin to the throttle point (103 C on the E5-2690 v4). Stock is -6.00, about 97 C.
+# -28.00 keeps the dies at about 75 C.
+ml350_fans_pid_setpoints:
+  "1": -2800
+  "2": -2800
+
+# PWM channels 0-3 drive fans 1-4. 4-7 are the empty redundant bays.
+ml350_fans_channels: [0, 1, 2, 3, 4, 5, 6, 7]
+
+# Agent only. Curves are [[temp_C, min_pwm], ...]: no demand below the first point,
+# linear in between. hot = full speed. critical held for critical_seconds = poweroff.
+# fallback_pwm is requested while a class cannot be read.
+ml350_fans_sensors:
+  cpu: { curve: [[85, 16], [92, 200]], hot: 94, critical: 100, fallback_pwm: 80 }
+  gpu: { curve: [[82, 16], [88, 160]], hot: 90, critical: 95, fallback_pwm: 80 }
+  nvme: { curve: [[65, 16], [75, 160]], hot: 78, critical: 82, fallback_pwm: 80 }
+  disk: { curve: [[46, 16], [52, 160]], hot: 55, critical: 60, fallback_pwm: 80, interval: 60 }
+
+ml350_fans_agent:
+  interval: 10
+  reassert: 300
+  down_step: 8
+  min_change: 8
+  critical_seconds: 120
+  poweroff_enabled: true

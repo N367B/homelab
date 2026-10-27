@@ -1,0 +1,76 @@
+---
+- name: Load iLO fan account key
+  community.sops.load_vars:
+    file: "{{ playbook_dir }}/../secrets/ilo-fans.sops.yaml"
+  no_log: true
+
+- name: Install packages
+  ansible.builtin.apt:
+    name: "{{ ['python3-pexpect', 'openssh-client'] + (['smartmontools'] if ml350_fans_mode == 'agent' else []) }}"
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Create config directory
+  ansible.builtin.file:
+    path: /etc/ml350-fans
+    state: directory
+    owner: root
+    group: root
+    mode: "0700"
+
+- name: Install iLO SSH key
+  ansible.builtin.copy:
+    content: "{{ ilo_fans_ssh_private_key }}"
+    dest: /etc/ml350-fans/id_rsa
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart ml350-fans agent
+
+- name: Render config
+  ansible.builtin.template:
+    src: config.json.j2
+    dest: /etc/ml350-fans/config.json
+    owner: root
+    group: root
+    mode: "0600"
+  notify: Restart ml350-fans agent
+
+- name: Install ml350-fans
+  ansible.builtin.copy:
+    src: ml350-fans
+    dest: /usr/local/sbin/ml350-fans
+    owner: root
+    group: root
+    mode: "0755"
+  notify: Restart ml350-fans agent
+
+- name: Render systemd units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop: "{{ ['ml350-fans-agent.service'] if ml350_fans_mode == 'agent' else ['ml350-fans-apply.service', 'ml350-fans-apply.timer'] }}"
+  notify:
+    - Reload systemd
+    - Restart ml350-fans agent
+
+- name: Enable the agent
+  ansible.builtin.systemd_service:
+    name: ml350-fans-agent
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: ml350_fans_mode == 'agent'
+
+- name: Enable the apply timer
+  ansible.builtin.systemd_service:
+    name: ml350-fans-apply.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  when: ml350_fans_mode == 'apply'

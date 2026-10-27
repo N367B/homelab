@@ -10,7 +10,7 @@
 - CPUs: 2 x Intel Xeon E5-2690 v4
 - RAM: 256GB (8 x 32GB) DDR4 ECC at 2400MHz
   - max 2600MHz, but limited by CPU support
-- Motherboard / Firmware: Latest modded iLO/firmware applied (enables fan control, but seems broken)
+- Motherboard / Firmware: modded iLO 4 v2.77 (exposes the fan controller over SSH, see [cooling.md](cooling.md))
 - GPU: ASUS Phoenix NVIDIA RTX 3060 (12GB)
 - HBA: Inspur LSI 9300-8i 12Gbps PCIe HBA Controller (IT Mode)
 - Networking: 10G NIC SFP+

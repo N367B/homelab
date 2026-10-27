@@ -1,0 +1,351 @@
+#!/usr/bin/env python3
+"""Cooling control for the HPE ML350 Gen9 through the modded iLO 4 (v2.77) `fan` commands.
+
+apply   Push the iLO tuning once (PID setpoints, and fan floors when given).
+agent   Long-running loop on the compute node: read host temperatures, push the
+        tuning plus a fan floor for the parts the iLO cannot see, and protect the
+        host when the iLO cannot be reached.
+status  Print host readings and the floor the agent would request.
+restore Put the iLO back to its stock tuning.
+
+The iLO forgets every `fan` setting when it resets and when the host reboots, so
+the tuning is pushed again every few minutes instead of being written once.
+See docs/cooling.md.
+"""
+from __future__ import annotations
+
+import argparse
+import glob
+import json
+import os
+import socket
+import subprocess
+import sys
+import time
+
+CONFIG = "/etc/ml350-fans/config.json"
+PROMPT = "</>hpiLO->"
+# In /run so it survives an agent restart but not a reboot.
+CRITICAL_FILE = "/run/ml350-fans.critical"
+# A disk in standby is cold. It counts as present without being spun up.
+ASLEEP = 0.0
+STOCK_PID_SETPOINTS = {"1": -600, "2": -600}
+PWM_MIN = 16
+PWM_MAX = 255
+
+
+def log(msg: str) -> None:
+    print(msg, flush=True)
+
+
+def load_config(path: str) -> dict:
+    with open(path) as f:
+        return json.load(f)
+
+
+# --- iLO -------------------------------------------------------------------
+
+
+def ilo_commands(cfg: dict, floor: int | None) -> list[str]:
+    cmds = [f"fan pid {pid} sp {int(sp)}" for pid, sp in sorted(cfg["pid_setpoints"].items())]
+    if floor is not None:
+        cmds += [f"fan p {ch} min {floor}" for ch in cfg["channels"]]
+    return cmds
+
+
+def ilo_run(cfg: dict, commands: list[str]) -> None:
+    """Send commands in one interactive SSH session.
+
+    The modded `fan` commands print nothing except to the first session after an
+    iLO reset, so success is judged by getting the prompt back after each one.
+    The whole session has one deadline and is always closed, so a slow iLO
+    cannot hold the agent loop or pile up orphaned sessions.
+    """
+    import pexpect
+
+    ilo = cfg["ilo"]
+    args = [
+        "-tt",
+        "-i", ilo["ssh_key"],
+        "-o", "IdentitiesOnly=yes",
+        "-o", "BatchMode=yes",
+        "-o", f"ConnectTimeout={ilo.get('connect_timeout', 10)}",
+        "-o", "ServerAliveInterval=5",
+        "-o", "ServerAliveCountMax=2",
+        "-o", f"UserKnownHostsFile={ilo['known_hosts']}",
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", "KexAlgorithms=+diffie-hellman-group14-sha1",
+        "-o", "HostKeyAlgorithms=+ssh-rsa",
+        "-o", "PubkeyAcceptedAlgorithms=+ssh-rsa",
+        f"{ilo['user']}@{ilo['host']}",
+    ]
+    deadline = time.time() + ilo.get("session_timeout", 60)
+
+    def left() -> float:
+        return max(1.0, deadline - time.time())
+
+    child = pexpect.spawn("ssh", args, encoding="latin-1")
+    step = "connect"
+    try:
+        child.expect_exact(PROMPT, timeout=left())
+        for cmd in commands:
+            step = cmd
+            child.sendline(cmd)
+            child.expect_exact(PROMPT, timeout=left())
+            if "unsupported" in child.before or "COMMAND NOT RECOGNIZED" in child.before:
+                raise RuntimeError(f"iLO rejected {cmd!r}")
+        step = "exit"
+        child.sendline("exit")
+        child.expect(pexpect.EOF, timeout=min(10, left()))
+    except pexpect.TIMEOUT:
+        raise RuntimeError(f"timeout at {step!r}") from None
+    except pexpect.EOF:
+        last = (child.before or "").strip().splitlines()[-1:] or ["no output"]
+        raise RuntimeError(f"ssh closed at {step!r}: {last[0]}") from None
+    finally:
+        child.close(force=True)
+
+
+# --- host sensors ------------------------------------------------------------
+
+
+def read_milli(path: str) -> float | None:
+    try:
+        with open(path) as f:
+            return int(f.read()) / 1000
+    except (OSError, ValueError):
+        return None
+
+
+# Readers return one value per device found, None when that device cannot be read.
+
+
+def cpu_temps() -> list[float | None]:
+    return [read_milli(p) for p in glob.glob("/sys/devices/platform/coretemp.*/hwmon/hwmon*/temp1_input")]
+
+
+def gpu_temps() -> list[float | None]:
+    out = subprocess.run(
+        ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
+        capture_output=True, text=True, timeout=10, check=True,
+    ).stdout
+    return [float(x) for x in out.split()]
+
+
+def nvme_temps() -> list[float | None]:
+    # Composite temperature, the value the drive compares with its own warning threshold.
+    return [read_milli(p) for p in glob.glob("/sys/class/nvme/nvme*/hwmon*/temp1_input")]
+
+
+def disk_temps() -> list[float | None]:
+    temps = []
+    for dev in sorted(glob.glob("/dev/sd?")):
+        # USB devices are the iLO virtual media and card reader, which have no temperature.
+        if "/usb" in os.path.realpath(f"/sys/block/{os.path.basename(dev)}"):
+            continue
+        # -n standby: never spin a sleeping disk up just to read it.
+        r = subprocess.run(["smartctl", "-n", "standby", "-A", "-j", dev],
+                           capture_output=True, text=True, timeout=10)
+        if "STANDBY" in r.stdout:
+            temps.append(ASLEEP)
+            continue
+        try:
+            t = json.loads(r.stdout).get("temperature", {}).get("current")
+        except ValueError:
+            t = None
+        temps.append(float(t) if isinstance(t, (int, float)) and 0 < t < 120 else None)
+    return temps
+
+
+READERS = {"cpu": cpu_temps, "gpu": gpu_temps, "nvme": nvme_temps, "disk": disk_temps}
+
+
+def read_sensors(cfg: dict, cache: dict) -> tuple[dict[str, float | None], set[str]]:
+    """Hottest readable value per class, and the classes with a device missing.
+
+    A device is missing when it cannot be read or when fewer devices are found than
+    the most seen since the agent started, so one lost disk is not hidden by the others.
+    """
+    now = time.time()
+    seen = cache.setdefault("seen", {})
+    result, missing = {}, set()
+    for name, spec in cfg["sensors"].items():
+        cached = cache.get(name)
+        if cached and now - cached[0] < spec.get("interval", 0):
+            values = cached[1]
+        else:
+            try:
+                values = READERS[name]()
+            except Exception as exc:  # a broken tool must not stop the loop
+                log(f"[warn] reading {name} failed: {exc}")
+                values = []
+            cache[name] = (now, values)
+        seen[name] = max(seen.get(name, 0), len(values))
+        readable = [v for v in values if v is not None]
+        result[name] = max(readable) if readable else None
+        if not readable or len(readable) < seen[name]:
+            missing.add(name)
+    return result, missing
+
+
+# --- decision ------------------------------------------------------------------
+
+
+def interpolate(curve: list[list[float]], temp: float) -> int:
+    """Linear interpolation on [[temp, pwm], ...]. Below the first point there is no demand."""
+    if temp <= curve[0][0]:
+        return PWM_MIN
+    for (t0, p0), (t1, p1) in zip(curve, curve[1:]):
+        if temp <= t1:
+            return round(p0 + (p1 - p0) * (temp - t0) / (t1 - t0))
+    return curve[-1][1]
+
+
+def demand(cfg: dict, readings: dict, missing: set) -> tuple[int, str]:
+    """Floor requested by the hottest class. A class with a missing device requests at least its fallback floor."""
+    best, why = PWM_MIN, "idle"
+    for name, temp in readings.items():
+        spec = cfg["sensors"][name]
+        candidates = []
+        if name in missing:
+            candidates.append((spec["fallback_pwm"], f"{name} device unreadable"))
+        if temp is not None:
+            if temp >= spec["hot"]:
+                candidates.append((PWM_MAX, f"{name} {temp:.0f}C hot"))
+            else:
+                candidates.append((interpolate(spec["curve"], temp), f"{name} {temp:.0f}C"))
+        for pwm, reason in candidates:
+            if pwm > best:
+                best, why = pwm, reason
+    return max(PWM_MIN, min(PWM_MAX, best)), why
+
+
+def critical(cfg: dict, readings: dict) -> list[str]:
+    return [f"{n} {t:.0f}C" for n, t in readings.items()
+            if t is not None and t >= cfg["sensors"][n]["critical"]]
+
+
+def critical_held(now: float, hot: list[str]) -> float:
+    """Seconds a critical temperature has lasted, kept across agent restarts."""
+    if not hot:
+        try:
+            os.remove(CRITICAL_FILE)
+        except FileNotFoundError:
+            pass
+        return 0.0
+    try:
+        with open(CRITICAL_FILE) as f:
+            since = float(f.read())
+    except (OSError, ValueError):
+        since = now
+        with open(CRITICAL_FILE, "w") as f:
+            f.write(str(since))
+    return now - since
+
+
+# --- systemd ----------------------------------------------------------------
+
+
+def sd_notify(msg: str) -> None:
+    addr = os.environ.get("NOTIFY_SOCKET")
+    if not addr:
+        return
+    if addr.startswith("@"):
+        addr = "\0" + addr[1:]
+    with socket.socket(socket.AF_UNIX, socket.SOCK_DGRAM) as s:
+        s.connect(addr)
+        s.sendall(msg.encode())
+
+
+# --- commands ------------------------------------------------------------------
+
+
+def cmd_apply(cfg: dict, args) -> int:
+    try:
+        ilo_run(cfg, ilo_commands(cfg, args.floor))
+    except Exception as exc:
+        log(f"[error] apply failed: {exc}")
+        return 1
+    if args.verbose:
+        log("[apply] tuning pushed")
+    return 0
+
+
+def cmd_status(cfg: dict, args) -> int:
+    readings, missing = read_sensors(cfg, {})
+    floor, why = demand(cfg, readings, missing)
+    print(json.dumps({"readings": readings, "missing": sorted(missing), "floor": floor, "reason": why,
+                      "critical": critical(cfg, readings)}, indent=2))
+    return 0
+
+
+def cmd_restore(cfg: dict, args) -> int:
+    cmds = [f"fan pid {p} sp {sp}" for p, sp in sorted(STOCK_PID_SETPOINTS.items())]
+    cmds += [f"fan p {ch} min {PWM_MIN}" for ch in cfg["channels"]]
+    ilo_run(cfg, cmds)
+    log("[restore] stock PID setpoints and minimum speeds restored")
+    return 0
+
+
+def cmd_agent(cfg: dict, args) -> int:
+    a = cfg["agent"]
+    cache: dict = {}
+    applied = None          # floor the iLO last accepted
+    last_push = 0.0
+    failures = 0
+    sd_notify("READY=1")
+    log(f"[agent] started, interval {a['interval']}s, reassert every {a['reassert']}s")
+
+    while True:
+        started = time.time()
+        readings, missing = read_sensors(cfg, cache)
+        wanted, why = demand(cfg, readings, missing)
+
+        # Checked before talking to the iLO so a slow or dead iLO cannot delay it.
+        # Last line of defence when cooling is not keeping up, for example dead fans or
+        # an iLO that cannot be reached. Shutting down beats cooking disks.
+        hot = critical(cfg, readings)
+        held = critical_held(started, hot)
+        if hot:
+            log(f"[crit] {', '.join(hot)} for {held:.0f}s")
+            if a.get("poweroff_enabled") and held >= a["critical_seconds"]:
+                log("[crit] powering off to protect the hardware")
+                subprocess.run(["systemctl", "poweroff"], check=False)
+
+        # Go up at once, come down slowly so a bursty load does not make the fans hunt.
+        floor = wanted if applied is None or wanted >= applied else max(wanted, applied - a["down_step"])
+
+        due = applied is None or started - last_push >= a["reassert"]
+        changed = applied is not None and (floor > applied or applied - floor >= a["min_change"])
+        if due or changed:
+            try:
+                ilo_run(cfg, ilo_commands(cfg, floor))
+                if applied != floor or failures:
+                    log(f"[agent] floor {floor} ({why}) " + json.dumps(readings)
+                        + (f" missing {sorted(missing)}" if missing else ""))
+                applied, last_push, failures = floor, started, 0
+            except Exception as exc:
+                failures += 1
+                log(f"[warn] iLO push failed ({failures}): {exc}")
+
+        sd_notify("WATCHDOG=1")
+        time.sleep(max(1.0, a["interval"] - (time.time() - started)))
+
+
+def main() -> int:
+    p = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
+    p.add_argument("--config", default=CONFIG)
+    sub = p.add_subparsers(dest="cmd", required=True)
+    ap = sub.add_parser("apply")
+    ap.add_argument("--floor", type=int, help="also set this minimum PWM (16-255) on every channel")
+    ap.add_argument("-v", "--verbose", action="store_true")
+    sub.add_parser("agent")
+    sub.add_parser("status")
+    sub.add_parser("restore")
+    args = p.parse_args()
+    cfg = load_config(args.config)
+    return {"apply": cmd_apply, "agent": cmd_agent, "status": cmd_status, "restore": cmd_restore}[args.cmd](cfg, args)
+
+
+if __name__ == "__main__":
+    sys.exit(main())

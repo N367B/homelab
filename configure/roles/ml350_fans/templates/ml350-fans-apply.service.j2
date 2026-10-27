@@ -1,0 +1,10 @@
+# Ansible managed (role ml350_fans)
+[Unit]
+Description=Push the ML350 iLO cooling tuning
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ml350-fans apply
+TimeoutStartSec=90
