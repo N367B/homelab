@@ -30,6 +30,8 @@ CRITICAL_FILE = "/run/ml350-fans.critical"
 # A disk in standby is cold. It counts as present without being spun up.
 ASLEEP = 0.0
 STOCK_PID_SETPOINTS = {"1": -600, "2": -600}
+# Stock output low limit of the PCI zone loops that the quiet settings lower.
+STOCK_PID_LOW_LIMIT = 5000
 PWM_MIN = 16
 PWM_MAX = 255
 
@@ -48,6 +50,10 @@ def load_config(path: str) -> dict:
 
 def ilo_commands(cfg: dict, floor: int | None) -> list[str]:
     cmds = [f"fan pid {pid} sp {int(sp)}" for pid, sp in sorted(cfg["pid_setpoints"].items())]
+    quiet = cfg.get("quiet", {})
+    cmds += [f"fan pid {pid} lo {int(lo)}" for pid, lo in sorted(quiet.get("pid_low_limits", {}).items())]
+    # Whole degrees here, unlike the PID values.
+    cmds += [f"fan t {n} set {int(t)}" for n, t in sorted(quiet.get("simulated_temps", {}).items())]
     if floor is not None:
         cmds += [f"fan p {ch} min {floor}" for ch in cfg["channels"]]
     return cmds
@@ -280,10 +286,13 @@ def cmd_status(cfg: dict, args) -> int:
 
 
 def cmd_restore(cfg: dict, args) -> int:
+    quiet = cfg.get("quiet", {})
     cmds = [f"fan pid {p} sp {sp}" for p, sp in sorted(STOCK_PID_SETPOINTS.items())]
+    cmds += [f"fan pid {p} lo {STOCK_PID_LOW_LIMIT}" for p in sorted(quiet.get("pid_low_limits", {}))]
+    cmds += [f"fan t {n} unset" for n in sorted(quiet.get("simulated_temps", {}))]
     cmds += [f"fan p {ch} min {PWM_MIN}" for ch in cfg["channels"]]
     ilo_run(cfg, cmds)
-    log("[restore] stock PID setpoints and minimum speeds restored")
+    log("[restore] stock iLO tuning restored")
     return 0
 
 

@@ -8,6 +8,7 @@
     "session_timeout": 60
   },
   "pid_setpoints": ml350_fans_pid_setpoints,
+  "quiet": ml350_fans_quiet if ml350_fans_mode == "agent" else {},
   "channels": ml350_fans_channels,
   "sensors": ml350_fans_sensors,
   "agent": ml350_fans_agent
