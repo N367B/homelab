@@ -88,7 +88,10 @@ def ilo_run(cfg: dict, commands: list[str]) -> None:
     deadline = time.time() + ilo.get("session_timeout", 60)
 
     def left() -> float:
-        return max(1.0, deadline - time.time())
+        remaining = deadline - time.time()
+        if remaining <= 0:
+            raise pexpect.TIMEOUT("session deadline")
+        return remaining
 
     child = pexpect.spawn("ssh", args, encoding="latin-1")
     step = "connect"
@@ -302,6 +305,7 @@ def cmd_agent(cfg: dict, args) -> int:
     applied = None          # floor the iLO last accepted
     last_push = 0.0
     failures = 0
+    retry_at = 0.0
     sd_notify("READY=1")
     log(f"[agent] started, interval {a['interval']}s, reassert every {a['reassert']}s")
 
@@ -326,7 +330,8 @@ def cmd_agent(cfg: dict, args) -> int:
 
         due = applied is None or started - last_push >= a["reassert"]
         changed = applied is not None and (floor > applied or applied - floor >= a["min_change"])
-        if due or changed:
+        # After a failure, wait a minute so a struggling iLO is not hit with a session every round.
+        if (due or changed) and started >= retry_at:
             try:
                 ilo_run(cfg, ilo_commands(cfg, floor))
                 if applied != floor or failures:
@@ -335,6 +340,7 @@ def cmd_agent(cfg: dict, args) -> int:
                 applied, last_push, failures = floor, started, 0
             except Exception as exc:
                 failures += 1
+                retry_at = started + 60
                 log(f"[warn] iLO push failed ({failures}): {exc}")
 
         sd_notify("WATCHDOG=1")
