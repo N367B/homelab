@@ -57,6 +57,7 @@ Storage Configuration (Server 1):
 - Model: HPE T1500 G5 INTL Tower UPS (brand new batteries)
 - Capacity: 1550VA / 1100W
 - Connectivity: Connected via USB to the Mini PC / Server (No NIC installed)
+- Status: faulty (`AVR tempera. fault`, code `0x105`), not usable as a backup yet. See [ups.md](ups.md)
 
 ---
 
