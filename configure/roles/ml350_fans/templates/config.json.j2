@@ -1,0 +1,15 @@
+{{ {
+  "ilo": {
+    "host": ml350_fans_ilo_host,
+    "user": ml350_fans_ilo_user,
+    "ssh_key": "/etc/ml350-fans/id_rsa",
+    "known_hosts": "/etc/ml350-fans/known_hosts",
+    "connect_timeout": 10,
+    "session_timeout": 60
+  },
+  "pid_setpoints": ml350_fans_pid_setpoints,
+  "quiet": ml350_fans_quiet if ml350_fans_mode == "agent" else {},
+  "channels": ml350_fans_channels,
+  "sensors": ml350_fans_sensors,
+  "agent": ml350_fans_agent
+} | to_nice_json }}

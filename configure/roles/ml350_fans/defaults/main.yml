@@ -1,0 +1,45 @@
+---
+# agent: compute node, reads host sensors and pushes tuning + fan floor.
+# apply: any other host on the LAN (the edge), pushes the tuning every 5 minutes so it comes back
+# after an iLO reset or a host reboot even when the compute node is down or cut off.
+ml350_fans_mode: apply
+
+ml350_fans_ilo_host: 192.168.7.3
+ml350_fans_ilo_user: fanctl
+
+# iLO PID setpoints, in hundredths of a degree. PIDs 1 and 2 regulate CPU 1 and CPU 2 on the
+# PECI margin to the throttle point (103 C on the E5-2690 v4). Stock is -6.00, about 97 C.
+# -20.00 holds the dies at about 83 C under full load, so the fans stay at their minimum
+# through moderate load.
+ml350_fans_pid_setpoints:
+  "1": -2000
+  "2": -2000
+
+# Agent only, so they go away with the next iLO reset if the agent stops. Stock, the PCI
+# zone loops never go below 50/255 and the HD Max loop, blind behind the LSI HBA, falls back
+# to an inlet curve at about 46/255. The loops keep their setpoints. The agent watches the
+# disks instead of the iLO.
+ml350_fans_quiet:
+  pid_low_limits: { "37": 1600, "39": 1600, "40": 1600, "42": 1600, "45": 1600, "47": 1600, "48": 1600, "51": 1600, "52": 1600, "53": 1600, "56": 1600, "60": 1600, "61": 1600 }
+  # Sensor 7 (HD Max) adds 50, so -20 reads 30 C, below its loop setpoint of 46 C.
+  simulated_temps: { "7": -20 }
+
+# PWM channels 0-3 drive fans 1-4. 4-7 are the empty redundant bays.
+ml350_fans_channels: [0, 1, 2, 3]
+
+# Agent only. Curves are [[temp_C, min_pwm], ...]: no demand below the first point,
+# linear in between. hot = full speed. critical held for critical_seconds = poweroff.
+# fallback_pwm is requested while a class cannot be read.
+ml350_fans_sensors:
+  cpu: { curve: [[88, 16], [94, 200]], hot: 96, critical: 100, fallback_pwm: 80 }
+  gpu: { curve: [[82, 16], [88, 160]], hot: 90, critical: 95, fallback_pwm: 80 }
+  nvme: { curve: [[70, 16], [78, 160]], hot: 80, critical: 82, fallback_pwm: 80 }
+  disk: { curve: [[46, 16], [52, 160]], hot: 55, critical: 60, fallback_pwm: 80, interval: 60 }
+
+ml350_fans_agent:
+  interval: 10
+  reassert: 300
+  down_step: 8
+  min_change: 8
+  critical_seconds: 120
+  poweroff_enabled: true

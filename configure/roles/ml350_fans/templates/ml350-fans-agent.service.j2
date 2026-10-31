@@ -1,0 +1,18 @@
+# Ansible managed (role ml350_fans)
+[Unit]
+Description=ML350 cooling agent (host sensors to iLO fan floor)
+Documentation=https://github.com/N367B/homelab/blob/main/docs/cooling.md
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=notify
+ExecStart=/usr/local/sbin/ml350-fans agent
+Restart=always
+RestartSec=5
+# One round can wait up to a minute on the iLO and about 90 s on smartctl. A hung agent is restarted.
+WatchdogSec=180
+NotifyAccess=main
+
+[Install]
+WantedBy=multi-user.target

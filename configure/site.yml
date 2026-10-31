@@ -25,10 +25,12 @@
     - edge_backup
     - wireguard
     - { role: nut, tags: [nut] }
+    - { role: ml350_fans, tags: [fans] }
 
 - name: Compute node — Docker + Incus (Incus role TBD)
   hosts: compute_nodes
   become: true
   roles:
     - docker_host
+    - { role: ml350_fans, ml350_fans_mode: agent, tags: [fans] }
     # - incus_host  # TODO: when Server 1 build starts

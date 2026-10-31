@@ -28,4 +28,5 @@ Use from each layer:
 | `edge-authentik.sops.env` | `PG_PASS` + `AUTHENTIK_SECRET_KEY` for the Authentik stack |
 | `edge-backup.sops.yaml` | Restic password for the local edge backup repository, plus OVH S3 key/password for offsite edge backup |
 | `edge-wireguard.sops.yaml` | WireGuard server private key for the edge node |
+| `ilo-fans.sops.yaml` | SSH private key and password of the unprivileged iLO account `fanctl`, used by the `ml350_fans` role on the edge and the compute node (see `docs/cooling.md`) |
 | `backup.sops.yaml` | future shared/offsite backup credentials, once provider is chosen |
