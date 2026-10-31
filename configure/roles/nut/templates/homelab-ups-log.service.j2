@@ -1,0 +1,8 @@
+# Ansible managed (role nut)
+[Unit]
+Description=Log UPS state to the journal
+After=nut-server.service
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c 'upsc {{ nut_ups_name }}@localhost 2>&1 | grep -E "^(ups\.(status|alarm|load|beeper\.status)|battery\.(charge|runtime|voltage)|input\.voltage):" | tr "\n" " " | systemd-cat -t ups-log'

@@ -93,7 +93,9 @@ Restic is now the selected backup engine for the first implementation. Edge back
 
 - [x] Update strategy: Renovate (Docker image tags in compose, OpenTofu providers, Ansible collections, GitHub Actions)
 - [ ] No Watchtower. Confirm alternative cadence
-- [ ] UPS integration: NUT on edge, graceful shutdown script for compute (<30% battery)
+- [x] NUT on the edge reads the UPS over USB and never shuts the edge down
+- [ ] Fix the UPS fault `0x105` (see [ups.md](ups.md))
+- [ ] Graceful shutdown of compute (<30% battery) once the UPS works, with a NUT admin account for beeper and battery tests
 - [ ] Night shutdown / wake schedule for Server 1 (cron? scripted? manual?)
 - [ ] CI for this repo? (linting ansible/opentofu, ansible --check on PRs, ...)
 - [ ] Tagged releases / rollback strategy for IaC

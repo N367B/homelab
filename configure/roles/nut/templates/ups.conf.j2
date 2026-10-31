@@ -1,0 +1,7 @@
+# Ansible managed (role nut)
+[{{ nut_ups_name }}]
+    driver = usbhid-ups
+    port = auto
+    vendorid = {{ nut_usb_vendorid }}
+    productid = {{ nut_usb_productid }}
+    desc = "{{ nut_ups_desc }}"

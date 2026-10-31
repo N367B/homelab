@@ -1,0 +1,14 @@
+# Ansible managed (role nut)
+# The UPS is only read over USB. It does not power the edge, so it must never shut the host down.
+# A power value of 0 keeps the notifications and ignores the UPS in the shutdown decision.
+MONITOR {{ nut_ups_name }}@localhost 0 upsmon {{ nut_upsmon_password }} primary
+MINSUPPLIES 0
+# Second guard in case upsmon asks for a shutdown anyway. It only writes a line to the journal.
+SHUTDOWNCMD "/usr/bin/logger -t upsmon UPS asked for a shutdown, ignored because the UPS does not power this host"
+SHUTDOWNEXIT no
+POLLFREQ 5
+POLLFREQALERT 5
+HOSTSYNC 15
+DEADTIME 15
+POWERDOWNFLAG /etc/killpower
+FINALDELAY 5
