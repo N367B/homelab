@@ -1,0 +1,9 @@
+---
+# Zabbly channel. The LTS gets fixes only, so the API that OpenTofu drives stays put. "stable" ships new features every month.
+incus_channel: lts-7.0
+incus_bridge_name: incusbr0
+incus_bridge_address: 10.10.20.1/24
+incus_storage_pool: fast
+incus_storage_source: fast/incus
+# API for OpenTofu from the admin workstation. The host firewall limits who reaches it.
+incus_https_address: ":8443"

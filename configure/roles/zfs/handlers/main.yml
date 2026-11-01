@@ -1,0 +1,10 @@
+---
+- name: Restart ZED
+  ansible.builtin.systemd_service:
+    name: zfs-zed
+    state: restarted
+
+# Takes effect at once, and from the next boot through modprobe.d.
+- name: Apply the ARC cap
+  ansible.builtin.shell: "echo {{ (zfs_arc_max_gib * 1024 ** 3) | int }} > /sys/module/zfs/parameters/zfs_arc_max"
+  changed_when: true

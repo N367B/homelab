@@ -1,0 +1,5 @@
+---
+# Never reboots on its own. The driver only loads after nouveau is gone.
+- name: Reboot needed for the NVIDIA driver
+  ansible.builtin.debug:
+    msg: "The NVIDIA driver was installed or updated. Reboot compute before using the GPU."

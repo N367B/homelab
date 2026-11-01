@@ -40,7 +40,7 @@ Current stack, with some compute-node pieces still planned rather than implement
 
 - Storage Subsystem:
   - ZFS: data pools, with RAIDZ2 for bulk and a mirror for fast storage
-  - BTRFS: OS root with subvolumes + snapper for host snapshots. grub-btrfs boot entries are planned once the upstream install task exists (native BTRFS RAID1 on Server 1 for checksum self-healing)
+  - BTRFS: OS root on the installer's `@rootfs` subvolume, with snapper apt snapshots on the compute node (native BTRFS RAID1 on Server 1 for checksum self-healing)
   - Base OS: Debian 13 (Trixie) on both nodes
 
 - Secrets Management:

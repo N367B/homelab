@@ -5,8 +5,7 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 ## 0. Foundational decisions DONE
 
 - [x] Base OS: Debian 13 (Trixie) on both nodes
-- [x] Root filesystem: BTRFS subvolumes on native BTRFS RAID1 (Server 1) / single drive (Server 2), with snapper
-- [ ] Add upstream `grub-btrfs` install task before treating boot-menu rollback as implemented
+- [x] Root filesystem: BTRFS native RAID1 (Server 1) / single drive (Server 2), root on the installer's `@rootfs` subvolume, snapper apt snapshots where `snapper_root` is on. The wider subvolume layout and grub-btrfs were dropped, the hosts are rebuilt from the repo
 - [x] Repo visibility: public (treated as already-public during the build)
 - [x] Secrets: SOPS + age, master key in Proton Pass + offline paper backup
 - [x] IaC stack: Incus + OpenTofu + Ansible + Docker, plus Renovate for dependency PRs
@@ -21,7 +20,8 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 
 ## 2. Storage
 
-- [ ] Ansible tasks for the BTRFS subvolumes, Snapper, the second ESP sync and GRUB on it. `bootstrap.md` says to do them by hand until then
+- [ ] Keep the second ESP of the compute node in sync after GRUB updates. `bootstrap.md` copies it by hand at install
+- [ ] Turn on `snapper_root` on the edge (the compute node has it from its bootstrap)
 - [x] OS boot layout on Server 1: BTRFS native RAID1 over both SSDs (install on one, convert on first boot). See `storage.md` / `bootstrap.md`
 - [ ] Define ZFS dataset tree for `fast` pool (apps, databases, caches, ...)
 - [ ] Define ZFS dataset tree for `bulk` pool (media, immich, nextcloud, archives, ...)
@@ -37,13 +37,13 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 - [x] Lab IP layout: `10.10.0.0/16` for the lab, `10.99.0.0/16` for the edge zone, second octet per purpose (see `network.md`). Revisit only if a VPN client meets a network that also uses `10.10.x.x`
 - [ ] Switch management over SSH instead of Telnet (interactive session works, scripted use untested), then close Telnet
 - [ ] Tests for `scripts/net-apply` and `scripts/switch` failure paths (unconfirmed change, netmask drift, failed save, unreadable output)
-- [ ] Role `network` for the compute node, and the `10.10.0.0/16` route on the Freebox and the edge
+- [ ] The `10.10.0.0/16` route on the edge (Ansible) and, for other LAN clients, on the Freebox. The compute side (role `network`, Incus bridge with NAT) is written and applies at its bootstrap
 - [x] Lock in final subnet plan (the `10.10.1.0` duplicate is fixed in `network.md`: incus `10.10.20.0/24`, vms `10.10.30.0/24`, apps `10.10.40.0/24`)
 - [ ] VLANs (Core / Homelab / IoT / Mgmt): deferred. The Freebox LAN is flat. They come with a dedicated router (target in `network.md`)
 - [ ] IPv6: the Freebox owns RAs, DNS and the prefix firewall (on). Decide later whether to hand out a delegated `/64` to the compute node
-- [ ] Wake-on-LAN: BIOS + OS + edge-side trigger (magic packet from AdGuard/edge)
+- [ ] Power schedule of the compute node from the edge through the iLO. WoL is impossible, the X520 has no Wake-on support (see `network.md`). Needs an iLO account with the Virtual Power and Reset privilege, its key in SOPS, and the on and off times
 - [x] Ansible-manage the static interface config on the edge (role `network`, applied with `scripts/net-apply/apply.sh`)
-- [ ] Same for the compute node once it is installed
+- [x] Same for the compute node (role `network`, `group_vars/compute_nodes.yml`). Applies at its bootstrap
 - [x] Internal DNS / split-horizon: public DNS resolves home public IP, AdGuard resolves `*.{{ homelab_domain }}` to edge internally
 - [x] Remote access: plain WireGuard on the edge node. No third-party dependency. Tailscale can be added later if it gets annoying
 - [ ] Firewall scheme: host-level nftables per node today (edge done: SSH and DNS limited to private sources). Inter-subnet rules come with the router
@@ -71,8 +71,10 @@ Running list of everything still to decide, design, or build. Ordered roughly fr
 
 - [ ] Pick a metrics stack (Prometheus+Grafana? Beszel? Netdata?)
 - [ ] Pick a log stack (Loki? journald only? Vector?)
-- [ ] Alerting target (ntfy? email? Telegram? Gotify?)
+- [ ] Alerting target. The roles send to ntfy (`notify_ntfy_topic`, empty means journal only). Pick ntfy.sh or a self-hosted ntfy and put the topic in SOPS
 - [ ] Minimum alerts for day 1: disk SMART, ZFS scrub/errors, UPS battery, host down, service down, cert expiry, backup failure
+  - Written: smartd, ZED, EDAC memory errors (`monitoring_base`) and iLO IML errors read from the edge (`ilo_watch`). Not deployed on the edge yet
+  - Still open: UPS battery, host down, service down, cert expiry, backup failure
   - Likely cheapest path: smartd + ZED mail/ntfy hooks first, Prometheus/Grafana as a later phase once services exist
 - [ ] Uptime check (external ping of the edge). Run Uptime Kuma or similar on the PulseHeberg VPS so monitoring survives a home outage
 
@@ -99,7 +101,7 @@ Restic is now the selected backup engine for the first implementation. Edge back
 - [ ] Night shutdown / wake schedule for Server 1 (cron? scripted? manual?)
 - [ ] CI for this repo? (linting ansible/opentofu, ansible --check on PRs, ...)
 - [ ] Tagged releases / rollback strategy for IaC
-- [ ] Automatic OS updates on the edge (unattended-upgrades for the Docker repo, night reboot after the backup) with a notification on every automatic reboot, so an outage can be explained. Not on the compute node (ZFS, GPU)
+- [ ] Automatic OS updates on the edge (unattended-upgrades for the Docker repo, night reboot after the backup) with a notification on every automatic reboot, so an outage can be explained. The compute node updates everything already (see `storage.md`) and needs no reboot since it is off every night
 - [ ] Firmware and OS to review every quarter, recording the version here: XikeStor switch, Freebox OS, iLO and BIOS of the ML350, Shelly plugs. Debian itself is a manual major upgrade
 - [ ] Idempotence: the AdGuard config task reports a change on every run and restarts the container; the Docker apt key also reports drift
 - [ ] Package upgrades on the edge (Docker, kernel, libc) in a planned window with a reboot
@@ -132,3 +134,13 @@ Restic is now the selected backup engine for the first implementation. Edge back
 - [ ] Hardware security key (Yubikey) as root-of-trust for secrets
 - [ ] Bare-metal monitoring of the UPS via SNMP NIC (requires buying the card)
 - [ ] Consider k3s / k8s for the "testing" workspace (learning, not production)
+
+## 12. Compute hardware follow-up
+
+Found during the October 2026 validation of the compute node (see `hardware.md`).
+
+- [ ] Memory: one uncorrectable error on P2 DIMM 9 under full CPU load on 2026-10-31, not reproduced since. P2 DIMM 4 failed POST training on 2026-10-26 before the CPU 2 sticks were shuffled. Swap P2 DIMM 9 with a CPU 1 stick and note the positions, so a repeat tells the stick from the slot or CPU
+- [ ] `incusd` was killed 4 s after start on 1 boot out of 18 and Incus came back by itself after 10 minutes. Watch for it after the bootstrap
+- [ ] Throughput from compute to the workstation was 2.3-6.9 Gbit/s while the other way reached 7.3-9.2. Retest against a native Linux host to rule out WSL
+- [ ] Cooling: the disks idle at 46-47 °C and the agent disk curve starts at 46 °C, so it raises the fan floor while the node is idle. Move the start to 48-49 °C if the noise matters
+- [ ] BIOS: switch the embedded SATA controller to AHCI if it is in Smart Array mode, and turn off PXE and option ROMs of the unused LOM ports (see `bootstrap.md`)

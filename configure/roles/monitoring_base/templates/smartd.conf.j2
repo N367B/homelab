@@ -1,0 +1,8 @@
+# {{ ansible_managed }}
+# Health, attributes and error logs on every disk, with a short self-test on Sundays at noon.
+# Long tests are left out. They take most of a day on the 10 TB disks and compute is off at night.
+# NVMe drives run hotter under load, so they get their own temperature limits. DEVICESCAN skips devices listed above it.
+{% for dev in smartd_nvme_devices %}
+{{ dev }} -a -s S/../../7/12 -W 4,{{ smartd_nvme_temp_info }},{{ smartd_nvme_temp_crit }} -m root -M exec /usr/local/sbin/homelab-smartd-notify
+{% endfor %}
+DEVICESCAN -d removable -a -o on -S on -n standby,q -s S/../../7/12 -W 4,{{ smartd_temp_info }},{{ smartd_temp_crit }} -m root -M exec /usr/local/sbin/homelab-smartd-notify

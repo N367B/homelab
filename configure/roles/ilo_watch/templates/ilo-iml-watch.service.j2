@@ -1,0 +1,9 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Alert on new iLO IML errors
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/ilo-iml-watch --host {{ ilo_watch_host }} --user {{ ilo_watch_user }} --key {{ ilo_watch_key }} --known-hosts {{ ilo_watch_known_hosts }}{% if ilo_watch_ignore %} --ignore '{{ ilo_watch_ignore }}'{% endif %}

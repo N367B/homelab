@@ -1,0 +1,7 @@
+---
+# Each pool: name, vdev (mirror, raidz2, ...), disks by id, pool_properties, filesystem_properties.
+zfs_pools: []
+# Each dataset: name and properties.
+zfs_datasets: []
+# ARC cap in GiB. 0 keeps the OpenZFS default.
+zfs_arc_max_gib: 0

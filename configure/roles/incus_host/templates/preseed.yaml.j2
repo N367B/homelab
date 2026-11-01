@@ -1,0 +1,31 @@
+# {{ ansible_managed }}
+# Applied once by the incus_host role on a fresh Incus. Later changes go through OpenTofu (provision/).
+config:
+{% if incus_https_address %}
+  core.https_address: "{{ incus_https_address }}"
+{% else %}
+  {}
+{% endif %}
+networks:
+  - name: {{ incus_bridge_name }}
+    type: bridge
+    config:
+      ipv4.address: {{ incus_bridge_address }}
+      ipv4.nat: "true"
+      ipv6.address: none
+storage_pools:
+  - name: {{ incus_storage_pool }}
+    driver: zfs
+    config:
+      source: {{ incus_storage_source }}
+profiles:
+  - name: default
+    devices:
+      eth0:
+        name: eth0
+        network: {{ incus_bridge_name }}
+        type: nic
+      root:
+        path: /
+        pool: {{ incus_storage_pool }}
+        type: disk

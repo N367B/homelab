@@ -7,6 +7,22 @@
   community.general.timezone:
     name: "{{ timezone }}"
 
+# The installer only enables main and non-free-firmware. Extra components get their own file so the installer's sources stay untouched.
+- name: Add extra Debian components
+  ansible.builtin.deb822_repository:
+    name: "debian-{{ item.name }}"
+    types: deb
+    uris: "{{ item.uri }}"
+    suites: "{{ item.suites }}"
+    components: "{{ debian_extra_components }}"
+    signed_by: /usr/share/keyrings/debian-archive-keyring.gpg
+  loop:
+    - { name: extra, uri: "http://deb.debian.org/debian", suites: ["{{ ansible_distribution_release }}", "{{ ansible_distribution_release }}-updates"] }
+    - { name: extra-security, uri: "http://security.debian.org/debian-security", suites: ["{{ ansible_distribution_release }}-security"] }
+  loop_control:
+    label: "{{ item.name }}"
+  when: debian_extra_components | length > 0
+
 - name: Install baseline packages
   ansible.builtin.apt:
     name: "{{ baseline_packages }}"
@@ -106,6 +122,21 @@
     group: root
     mode: "0644"
 
+# The Debian defaults cover the point releases and security. Extra origins add third-party repositories.
+- name: Add extra origins to unattended upgrades
+  ansible.builtin.copy:
+    dest: /etc/apt/apt.conf.d/51homelab-origins
+    content: |
+      Unattended-Upgrade::Origins-Pattern {
+      {% for origin in unattended_upgrades_extra_origins %}
+          "{{ origin }}";
+      {% endfor %}
+      };
+    owner: root
+    group: root
+    mode: "0644"
+  when: unattended_upgrades_extra_origins | length > 0
+
 - name: Configure zram swap (half of RAM, zstd)
   ansible.builtin.copy:
     dest: /etc/default/zramswap
@@ -164,9 +195,34 @@
     enabled: true
     state: started
     daemon_reload: true
+  # The unit file is only written for real, so check mode cannot find it on a fresh host.
+  ignore_errors: "{{ ansible_check_mode }}"
 
-# TODO: BTRFS subvolume layout (@, @home, @var, @log, @snapshots) + snapper configs + grub-btrfs. Install from upstream release/source because it is not in Debian 13/Trixie. Migrating a freshly-installed root into @ is a one-time operation that needs a reboot. Script it as guarded task file (btrfs_layout.yml) before the first real install. Plan:
-#   1. mount -o subvolid=5 /dev/<root> /mnt
-#   2. btrfs subvolume snapshot / /mnt/@, create @home @var @log @snapshots
-#   3. fstab subvol= options for each mountpoint, update-grub, reboot
-#   4. delete stray top-level files left outside @
+# Root stays on the @rootfs subvolume made by the Debian installer. Snapper adds /.snapshots below it and its apt hook (/etc/apt/apt.conf.d/80snapper) takes a pre and post snapshot around each apt run. No timeline snapshots, the host is rebuilt from the repo and only upgrades need an undo.
+- name: Create the snapper config for /
+  ansible.builtin.command: snapper --no-dbus -c root create-config /
+  args:
+    creates: /etc/snapper/configs/root
+  when: snapper_root | bool
+
+- name: Tune the snapper config for /
+  ansible.builtin.lineinfile:
+    path: /etc/snapper/configs/root
+    regexp: "^{{ item.key }}="
+    line: '{{ item.key }}="{{ item.value }}"'
+  loop:
+    - { key: TIMELINE_CREATE, value: "no" }
+    - { key: NUMBER_LIMIT, value: "20" }
+    - { key: NUMBER_LIMIT_IMPORTANT, value: "10" }
+  when: snapper_root | bool
+  # The config is only created for real, so check mode cannot find it on a fresh host.
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Enable snapper cleanup
+  ansible.builtin.systemd_service:
+    name: snapper-cleanup.timer
+    enabled: true
+    state: started
+  when: snapper_root | bool
+  # Snapper is only installed for real, so check mode cannot find its timer on a fresh host.
+  ignore_errors: "{{ ansible_check_mode }}"

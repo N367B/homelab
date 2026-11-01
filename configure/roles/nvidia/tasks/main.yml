@@ -1,0 +1,13 @@
+---
+# Debian driver from non-free, built with DKMS. The package blacklists nouveau, so the first install needs a reboot.
+# Incus brings its own libnvidia-container (nvidia.runtime), so no NVIDIA apt repository is needed.
+- name: Install the NVIDIA driver
+  ansible.builtin.apt:
+    name:
+      - linux-headers-amd64
+      - nvidia-driver
+      - nvidia-smi
+      - firmware-misc-nonfree
+    state: present
+    update_cache: true
+  notify: Reboot needed for the NVIDIA driver

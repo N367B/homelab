@@ -1,0 +1,10 @@
+#!/bin/sh
+# Usage: homelab-notify <priority> <title> <message>
+# Priority is an ntfy priority (min, low, default, high, urgent). Every alert lands in the journal.
+# It also goes to ntfy when /etc/homelab-notify.conf sets NTFY_TOPIC.
+prio=${1:-default}; title=${2:-alert}; msg=${3:-}
+logger -t homelab-notify -p user.warning "$title: $msg"
+[ -r /etc/homelab-notify.conf ] && . /etc/homelab-notify.conf
+[ -n "$NTFY_TOPIC" ] || exit 0
+curl -fsS -m 15 -H "Title: $(hostname): $title" -H "Priority: $prio" -d "$msg" "${NTFY_URL:-https://ntfy.sh}/$NTFY_TOPIC" >/dev/null \
+  || logger -t homelab-notify -p user.err "ntfy delivery failed for: $title"

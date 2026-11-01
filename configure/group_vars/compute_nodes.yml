@@ -1,0 +1,66 @@
+---
+# SSH answers the LAN, the VPN and IPv6 link-local only. Nothing else is open on the host.
+# Containers on the Incus bridge may reach the host DHCP and DNS (dnsmasq run by Incus), nothing else on the host, not even SSH.
+firewall_open_tcp: []
+firewall_open_udp: []
+firewall_allow_tcp:
+  - { port: 22, sources: ["192.168.7.0/24", "10.99.0.0/24"], sources6: ["fe80::/10"] }
+  # Incus API for OpenTofu from the admin workstation, LAN and VPN only.
+  - { port: 8443, sources: ["192.168.7.0/24", "10.99.0.0/24"] }
+firewall_dhcp_dns_interfaces: [incusbr0]
+
+# LAN interface, written by the network role. The X520 in PCIe slot 3 is named ens3. See docs/network.md.
+lan_interface: ens3
+lan_address: 192.168.7.11/24
+lan_gateway: 192.168.7.1
+
+# AdGuard on the edge first, so internal names resolve to LAN addresses. The Freebox answers while the edge is down.
+dns_nameservers: [192.168.7.10, 192.168.7.1]
+
+# ZFS and the NVIDIA driver come from contrib and non-free.
+debian_extra_components: [contrib, non-free]
+
+# Everything updates by itself, kernel, ZFS and the NVIDIA driver included. A kernel update rebuilds both modules with DKMS.
+# If a build fails, the boot check alerts on the missing pools or GPU, and the previous kernel is still in GRUB.
+# Incus LTS from Zabbly too. A restart of incusd keeps the instances running.
+unattended_upgrades_extra_origins: ["origin=pkgs.zabbly.com"]
+boot_check_pools: [fast, bulk]
+boot_check_nvidia: true
+
+# Root is BTRFS RAID1 on the two SATA SSDs. Snapper takes a snapshot before and after each apt run.
+snapper_root: true
+
+# Pools are created once, when absent and when no pool with that name can be imported from the disks.
+# Devices are named by id because the sdX letters change between boots on this machine.
+zfs_pools:
+  - name: fast
+    vdev: mirror
+    disks:
+      - /dev/disk/by-id/nvme-SAMSUNG_MZVL21T0HDLU-00BLL_S75YNF0X935063
+      - /dev/disk/by-id/nvme-WDS100T3X0C-00SJG0_2109D4462412
+    pool_properties: { ashift: 12, autotrim: "on" }
+    filesystem_properties: { compression: lz4, atime: "off", xattr: sa, acltype: posix, dnodesize: auto }
+  - name: bulk
+    vdev: raidz2
+    disks:
+      - /dev/disk/by-id/wwn-0x5000cca2731e3ea0
+      - /dev/disk/by-id/wwn-0x5000cca27e8ddd48
+      - /dev/disk/by-id/wwn-0x5000cca26aac7994
+      - /dev/disk/by-id/wwn-0x5000cca27e8dec68
+      - /dev/disk/by-id/wwn-0x5000cca26ac9d8e8
+      - /dev/disk/by-id/wwn-0x5000cca27e885480
+    pool_properties: { ashift: 12 }
+    filesystem_properties: { compression: zstd, atime: "off", xattr: sa, acltype: posix, dnodesize: auto }
+
+# A quarter of the 256 GB. The rest goes to containers, the GPU workloads and zram.
+zfs_arc_max_gib: 64
+
+# The full dataset tree is still open (see docs/todo.md). Incus creates fast/incus itself.
+zfs_datasets:
+  - { name: bulk/media, properties: { recordsize: 1M } }
+
+# Both NVMe drives get the NVMe temperature limits in smartd.
+smartd_nvme_devices: [/dev/nvme0, /dev/nvme1]
+
+# Incus bridge (10.10.20.1/24, role defaults). NAT stays on so containers reach the internet without a Freebox route.
+# The edge reaches them through its own static route to 10.10.0.0/16 via compute, and replies are not NATed.

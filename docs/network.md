@@ -54,6 +54,8 @@ The `10.10.x.x` subnets are reached through two static routes, both still to be 
 
 They exist while compute is powered on.
 
+The Incus bridge keeps NAT on for traffic the containers start, so they reach the internet without the Freebox route. Connections from the edge to a container are not NATed. They use the edge route, and the replies go back directly. The Freebox route is only needed for other LAN clients that talk to containers directly.
+
 ### Lab layout (`10.10.0.0/16`)
 
 | Range | Purpose |
@@ -106,7 +108,7 @@ Listed here so they stay visible.
 - [ ] Freebox settings to review: remote API access, WAN ping reply, adblock, Wake-on-LAN, default SSID
 - [ ] Throughput of the edge node (2.5G) against the 8G line (see Public Entrypoint)
 - [ ] Switch hardening: admin account and telnet
-- [ ] Explicit Incus and Docker address pools when the compute node is deployed
+- [ ] Explicit Incus and Docker address pools when the compute node is deployed. The Incus bridge `10.10.20.1/24` is set by the `incus_host` preseed, Docker inside containers still needs its pools
 - [ ] Secondary DNS on the compute node: add `192.168.7.11` to the DHCP DNS list (the Freebox takes up to 4)
 - [ ] Peers for the VPS (WireGuard rendezvous) and other services in `10.99.0.100` - `.199`, recorded in `vpn.md`
 - [ ] Fallback DNS handed out by DHCP (see DHCP and Local DNS)
@@ -114,6 +116,10 @@ Listed here so they stay visible.
 ## Edge Network Configuration
 
 The Ansible role `network` owns all network configuration of the edge: `/etc/network/interfaces` holds the loopback and an include, and `/etc/network/interfaces.d/lan` holds the interface, the address, the gateway and the DNS servers. It writes files only. `scripts/net-apply/apply.sh` moves a running node to what the files say, with an automatic revert that also puts the previous file back.
+
+## Compute Network Configuration
+
+The same role `network` owns the compute node: `ens3` (the X520 in PCIe slot 3) with `192.168.7.11/24`, set in `configure/group_vars/compute_nodes.yml`. The host has no LAN bridge. Containers live on the routed Incus bridge `incusbr0` (`10.10.20.0/24`), and the host firewall lets that bridge reach only the DHCP and DNS server of the host. SSH answers the LAN, the lab subnets, the VPN and IPv6 link-local, and the Incus API (8443) the LAN and the VPN.
 
 ## Re-addressing a Node
 
@@ -225,16 +231,12 @@ Longer-term goal:
 - Stop relying on Freebox IPv6 Router Advertisements if they prevent custom DNS control.
 - Have the edge node provide controlled IPv6 RA with custom DNS.
 
-## Wake-on-LAN
+## Powering the Compute Node On
 
-Wake-on-LAN is required for Server 1 because it may be powered down when not needed.
+Server 1 is powered down at night, but Wake-on-LAN cannot wake it. Its X520 reports `Supports Wake-on: d`, and the LOM ports that support WoL are not cabled. The iLO stays powered and on the LAN instead, so the node is powered on through it.
 
-Requirements:
-
-- Server 1 BIOS/iLO WoL enabled.
-- OS NIC WoL enabled and persisted by Ansible.
-- Edge node can send the magic packet.
-- Optional UI/API endpoint later, protected behind VPN or SSO.
+- By hand, `start /system1` in the iLO SSH CLI, the power button of the iLO web UI, or the front button.
+- Planned, a timer on the edge that powers it on in the morning and asks for a clean shutdown in the evening (`stop /system1` is an ACPI power button press, which systemd turns into a clean poweroff). It needs an iLO account with the Virtual Power and Reset privilege, separate from `fanctl`. See `todo.md`.
 
 ---
 
