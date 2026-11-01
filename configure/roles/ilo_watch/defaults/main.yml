@@ -1,0 +1,9 @@
+---
+# Reuses the unprivileged iLO account of the ml350_fans role. It can read the IML.
+ilo_watch_host: "{{ ml350_fans_ilo_host | default('192.168.7.3') }}"
+ilo_watch_user: "{{ ml350_fans_ilo_user | default('fanctl') }}"
+ilo_watch_key: /etc/ml350-fans/id_rsa
+ilo_watch_known_hosts: /etc/ml350-fans/known_hosts
+ilo_watch_interval: 10min
+# Informational noise is already filtered by severity. This drops known harmless Caution entries.
+ilo_watch_ignore: ""

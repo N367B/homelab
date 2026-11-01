@@ -1,0 +1,10 @@
+# {{ ansible_managed }}
+[Unit]
+Description=Read the iLO IML every {{ ilo_watch_interval }}
+
+[Timer]
+OnBootSec=2min
+OnUnitActiveSec={{ ilo_watch_interval }}
+
+[Install]
+WantedBy=timers.target

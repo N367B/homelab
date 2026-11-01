@@ -1,0 +1,20 @@
+#!/bin/sh
+# Alerts when the EDAC memory error counters grow. Corrected errors (ce) are the early warning,
+# uncorrected ones (ue) usually crash the host first and then show up in the iLO IML instead.
+state=/var/lib/homelab-edac/counts
+mkdir -p "${state%/*}"
+ce=$(cat /sys/devices/system/edac/mc/mc*/ce_count 2>/dev/null | awk '{s+=$1} END {print s+0}')
+ue=$(cat /sys/devices/system/edac/mc/mc*/ue_count 2>/dev/null | awk '{s+=$1} END {print s+0}')
+# Counters restart at zero on each boot, so keep the boot id with them.
+boot=$(cat /proc/sys/kernel/random/boot_id)
+if [ -r "$state" ]; then
+  read -r oboot oce oue < "$state"
+  [ "$oboot" = "$boot" ] || { oce=0; oue=0; }
+else
+  oce=0; oue=0
+fi
+if [ "$ce" -gt "$oce" ] || [ "$ue" -gt "$oue" ]; then
+  detail=$(grep -H . /sys/devices/system/edac/mc/mc*/csrow*/ch*_ce_count /sys/devices/system/edac/mc/mc*/dimm*/dimm_ce_count 2>/dev/null | grep -v ':0$' | head -20)
+  /usr/local/sbin/homelab-notify high "Memory errors" "EDAC corrected $oce -> $ce, uncorrected $oue -> $ue. $detail"
+fi
+echo "$boot $ce $ue" > "$state"

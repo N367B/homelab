@@ -1,0 +1,17 @@
+#!/bin/sh
+# Runs once after each boot. Kernel, ZFS and NVIDIA updates are automatic, and a failed DKMS build
+# only shows up at the next boot as missing pools or a missing GPU. This turns that into an alert.
+. /etc/homelab-boot-check.conf
+problems=""
+for pool in $BOOT_CHECK_POOLS; do
+  health=$(zpool list -H -o health "$pool" 2>/dev/null)
+  [ "$health" = "ONLINE" ] || problems="$problems pool $pool is ${health:-missing}."
+done
+if [ "$BOOT_CHECK_NVIDIA" = "true" ] && ! nvidia-smi -L >/dev/null 2>&1; then
+  problems="$problems nvidia-smi finds no GPU."
+fi
+if [ -n "$problems" ]; then
+  /usr/local/sbin/homelab-notify urgent "Boot check failed" "Kernel $(uname -r).$problems The previous kernel is under Advanced options in GRUB (iLO console)."
+  exit 1
+fi
+logger -t homelab-boot-check "pools and GPU ok on kernel $(uname -r)"

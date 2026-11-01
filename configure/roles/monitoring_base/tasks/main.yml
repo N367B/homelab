@@ -1,0 +1,145 @@
+---
+- name: Install monitoring tools
+  ansible.builtin.apt:
+    name:
+      - smartmontools
+      - rasdaemon
+      - curl
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+
+- name: Install notification scripts
+  ansible.builtin.copy:
+    src: "{{ item }}"
+    dest: "/usr/local/sbin/{{ item }}"
+    owner: root
+    group: root
+    mode: "0755"
+  loop:
+    - homelab-notify
+    - homelab-smartd-notify
+    - homelab-edac-check
+
+# The topic decides who can read the alerts on ntfy.sh, so the file is root only.
+- name: Render notification config
+  ansible.builtin.template:
+    src: homelab-notify.conf.j2
+    dest: /etc/homelab-notify.conf
+    owner: root
+    group: root
+    mode: "0600"
+
+- name: Render smartd config
+  ansible.builtin.template:
+    src: smartd.conf.j2
+    dest: /etc/smartd.conf
+    owner: root
+    group: root
+    mode: "0644"
+  notify: Restart smartd
+
+- name: Enable smartd and rasdaemon
+  ansible.builtin.systemd_service:
+    name: "{{ item }}"
+    enabled: true
+    state: started
+  loop:
+    - smartd
+    - rasdaemon
+  # Packages are only installed for real, so check mode cannot find a new service.
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Render EDAC check units
+  ansible.builtin.copy:
+    dest: "/etc/systemd/system/{{ item.name }}"
+    content: "{{ item.content }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - name: homelab-edac-check.service
+      content: |
+        [Unit]
+        Description=Alert on new memory errors
+        [Service]
+        Type=oneshot
+        ExecStart=/usr/local/sbin/homelab-edac-check
+    - name: homelab-edac-check.timer
+      content: |
+        [Unit]
+        Description=Check memory error counters every 10 minutes
+        [Timer]
+        OnBootSec=5min
+        OnUnitActiveSec=10min
+        [Install]
+        WantedBy=timers.target
+  loop_control:
+    label: "{{ item.name }}"
+  notify: Reload systemd
+
+- name: Enable EDAC check timer
+  ansible.builtin.systemd_service:
+    name: homelab-edac-check.timer
+    enabled: true
+    state: started
+    daemon_reload: true
+  # The unit file is only written for real, so check mode cannot find it on a fresh host.
+  ignore_errors: "{{ ansible_check_mode }}"
+
+- name: Install the boot check
+  when: boot_check_pools | length > 0 or boot_check_nvidia | bool
+  block:
+    - name: Install boot check script
+      ansible.builtin.copy:
+        src: homelab-boot-check
+        dest: /usr/local/sbin/homelab-boot-check
+        owner: root
+        group: root
+        mode: "0755"
+
+    - name: Render boot check config
+      ansible.builtin.copy:
+        dest: /etc/homelab-boot-check.conf
+        content: |
+          # Managed by Ansible (monitoring_base)
+          BOOT_CHECK_POOLS="{{ boot_check_pools | join(' ') }}"
+          BOOT_CHECK_NVIDIA="{{ boot_check_nvidia | bool | lower }}"
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Render boot check units
+      ansible.builtin.copy:
+        dest: "/etc/systemd/system/{{ item.name }}"
+        content: "{{ item.content }}"
+        owner: root
+        group: root
+        mode: "0644"
+      loop:
+        - name: homelab-boot-check.service
+          content: |
+            [Unit]
+            Description=Alert when pools or the GPU are missing after boot
+            [Service]
+            Type=oneshot
+            ExecStart=/usr/local/sbin/homelab-boot-check
+        # A few minutes after boot, so ZFS import and the driver have settled.
+        - name: homelab-boot-check.timer
+          content: |
+            [Unit]
+            Description=Check pools and GPU once after boot
+            [Timer]
+            OnBootSec=3min
+            [Install]
+            WantedBy=timers.target
+      loop_control:
+        label: "{{ item.name }}"
+      notify: Reload systemd
+
+    - name: Enable boot check timer
+      ansible.builtin.systemd_service:
+        name: homelab-boot-check.timer
+        enabled: true
+        daemon_reload: true
+      ignore_errors: "{{ ansible_check_mode }}"

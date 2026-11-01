@@ -26,11 +26,18 @@
     - wireguard
     - { role: nut, tags: [nut] }
     - { role: ml350_fans, tags: [fans] }
+    - { role: monitoring_base, tags: [monitoring] }
+    # Needs the iLO key installed by ml350_fans.
+    - { role: ilo_watch, tags: [monitoring] }
 
-- name: Compute node — Docker + Incus (Incus role TBD)
+# Docker stays off the bare-metal host. It sets the FORWARD policy to drop, which cuts the Incus bridge, and the apps run in Incus containers anyway.
+- name: Compute node — ZFS, GPU and Incus
   hosts: compute_nodes
   become: true
   roles:
-    - docker_host
+    - { role: network, tags: [network] }
+    - { role: monitoring_base, tags: [monitoring] }
+    - { role: zfs, tags: [zfs] }
+    - { role: nvidia, tags: [nvidia] }
+    - { role: incus_host, tags: [incus] }
     - { role: ml350_fans, ml350_fans_mode: agent, tags: [fans] }
-    # - incus_host  # TODO: when Server 1 build starts

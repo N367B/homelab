@@ -2,91 +2,165 @@
 
 The strictly manual steps to take each baremetal node from "powered off, blank disk" to "ready for Ansible". Anything beyond this file is handled by Ansible, OpenTofu, or Docker Compose.
 
-Both nodes run Debian 13 Trixie with BTRFS root and `snapper` for upgrade snapshots. `grub-btrfs` boot menu integration is planned but not implemented until its upstream install task exists.
+Both nodes run Debian 13 Trixie on a BTRFS root. The root stays on the `@rootfs` subvolume the Debian installer creates, and snapper takes a snapshot before and after each apt run where `snapper_root` is enabled (compute today). The hosts are rebuilt from this repo, so there is no wider subvolume layout and no grub-btrfs boot menu.
 
 ---
 
 ## Server 1 (HP ML350 Gen9)
 
-### 1. BIOS & iLO
+Everything here is done from the iLO remote console (`https://192.168.7.3`), so nothing needs a screen or a keyboard on the server.
 
-- Boot mode: UEFI, CSM disabled
-- Wake-on-LAN: enabled for the primary NIC
-- iLO: static IP `192.168.7.3`, strong password (stored in Proton Pass)
-- iLO account `fanctl` with its SSH key, used by the cooling role. It survives an OS reinstall but not an iLO factory reset (see `cooling.md`)
+### 1. BIOS and iLO
 
-### 2. OS install (Debian 13 netinst, manual partitioning)
+Set in the RBSU (F9 at POST):
 
-Hostname: `compute`. Identical layout on both 240 GB SSDs (`/dev/sda`, `/dev/sdb`):
+- Boot mode UEFI, no legacy boot.
+- Secure Boot off. ZFS and the NVIDIA driver are DKMS modules that are not signed, and a Secure Boot kernel refuses to load them. It is off today.
+- The embedded SATA controller in AHCI mode, not Smart Array. Check this setting first. The POST logs `1785-Slot 0 Drive Array Not Configured` on every boot, a sign the B140i Smart Array firmware still scans the SATA ports.
+- PXE and option ROMs off on the four unused LOM ports (`eno1`-`eno4`). This shortens POST, which takes about 3.5 minutes from power on to SSH today.
+- Power on after a power loss: restore the last power state.
+- ASR (Automatic Server Recovery) stays enabled. It rebooted the node after the October 2026 memory error instead of leaving it hung.
+
+iLO:
+
+- Static IP `192.168.7.3`, strong password (stored in Proton Pass).
+- iLO account `fanctl` with its SSH key, used by the cooling role and the IML watcher on the edge. It survives an OS reinstall but not an iLO factory reset (see `cooling.md`).
+
+Wake-on-LAN does not work on this node. The X520 reports `Supports Wake-on: d` and the LOM ports that support it are not cabled. The node is powered on through the iLO (`start /system1` in its SSH CLI, or the power button of the web UI) or with the front button.
+
+### 2. Know the disks
+
+The `sdX` letters change between boots on this machine (the SSDs were `sdc`/`sdg` one day and `sda`/`sdh` the next). Always identify disks by model and serial number, never by letter.
+
+| Disks | Model | Identify by |
+| --- | --- | --- |
+| System SSDs | 2 x Samsung PM863a 240 GB (`MZ7LM240HMHQ`) | serials `S2TWNX0J800659` and `S2TWNX0J802922`, 223.6 GiB |
+| Bulk pool | 6 x HGST HUH721010AL42C0 10 TB SAS, behind the LSI HBA | `wwn-0x5000cca2...`, 9.1 TiB |
+| Fast pool | Samsung PM9A1a and WD SN750, 1 TB NVMe | `nvme0n1` / `nvme1n1` |
+| iLO virtual media | `LUN 00 Media 0`, 512 MB | not a disk, never pick it |
+
+### 3. OS install (Debian 13 netinst)
+
+Download the current Debian 13 `amd64` netinst ISO from <https://www.debian.org/distrib/netinst>. In the iLO HTML5 console, mount it with `Virtual Drives` > `Image File CD-ROM/DVD`, then pick the virtual CD in the one-time boot menu (F11 at POST). Use the graphical or text `Install` entry. The installer needs internet, so let it take a DHCP lease on the X520 (`ens3`) when it asks for the primary interface.
+
+The SSDs still carry signatures from earlier installs (ZFS labels, an mdadm array, ext4). Clear them before partitioning, otherwise the installer may assemble the old array. Open a shell (`Execute a shell` in the installer menu, or Alt+F2) once the disks are detected:
+
+```sh
+ls -l /dev/disk/by-id/ | grep S2TWNX0J      # find the two SSD letters
+cat /proc/mdstat                            # any old array shows here
+mdadm --stop --scan                         # stops all of them
+wipefs -a /dev/sdX2 /dev/sdX1 /dev/sdX      # both SSDs, partitions first
+```
+
+Hostname `compute`, domain empty, user `noe`. Leave the root password empty, so the installer gives `noe` sudo rights. Identical layout on both SSDs:
 
 | Partition | Size  | Type       | Purpose      |
 | --------- | ----- | ---------- | ------------ |
-| `sdX1`    | 1 GiB | EFI System | ESP (FAT32)  |
-| `sdX2`    | rest  | BTRFS      | RAID1 member |
+| `p1`      | 1 GiB | EFI System | ESP (FAT32)  |
+| `p2`      | rest  | BTRFS      | RAID1 member |
 
-The Debian installer does not handle multi-device BTRFS, so RAID1 is reached in two steps: install on one disk, convert on first boot.
+The Debian installer does not handle multi-device BTRFS, so RAID1 is reached in two steps: install on one SSD, convert on first boot.
 
-In the installer:
+- On the first SSD, use `p1` as the ESP and format `p2` as BTRFS mounted at `/`.
+- On the second SSD, create the same partitions and leave `p2` unused. Its `p1` becomes the second ESP after the first boot.
+- Do not touch the HGST and NVMe disks. The ZFS role handles them.
 
-- Partition both disks with the layout above so they stay identical
-- Format `sda2` as BTRFS mounted at `/`. Leave `sdb2` untouched for now
-- Mount `sda1` at `/boot/efi`. `sdb1` stays as a sync target, handled later by Ansible
-- Install GRUB to `/dev/sda` (the second ESP is populated by Ansible)
+Answer `No` when the installer warns that there is no swap partition. Swap is zram, set up by Ansible.
 
-The full subvolume layout (`@`, `@home`, `@var`, `@log`, `@snapshots`) is meant to be created by Ansible. That task and the second ESP sync are still TODO in the baseline role, so do them by hand for now (see `todo.md`).
+Software selection: `SSH server` and `standard system utilities` only. No desktop.
 
-Software selection: minimal install + `standard system utilities` + `SSH server`. No desktop.
-
-### 3. First boot (root over console)
-
-This step only does the bare minimum to let Ansible take over: a static IP, the few packages Ansible itself needs, an admin user, and the keys. Everything else, including the full package set, hardening, zram, sops, scrub, and Docker, is installed by Ansible.
+### 4. First boot (iLO console)
 
 ```sh
-apt update && apt full-upgrade -y
-apt install -y sudo python3 python3-apt
+sudo apt update && sudo apt full-upgrade -y
+sudo apt install -y python3 python3-apt
 ```
 
-`sudo` (for Ansible `become`), `python3` (module interpreter) and `python3-apt` (the `apt` module) are the only packages Ansible needs to connect and bootstrap. The full baseline set, including `git`, `chrony`, `zram-tools`, `snapper`, `btrfs-progs`, `nftables`, `age`, and `unattended-upgrades`, is in `configure/group_vars/all.yml` and installed by the baseline role. `sops` and `grub-btrfs` are not in Debian. `sops` is installed by Ansible from the Renovate-managed GitHub release. `grub-btrfs` still needs an upstream install task. On the admin workstation, install `sops` from <https://github.com/getsops/sops/releases>.
+Reboot if the upgrade installed a new kernel. DKMS builds ZFS and the NVIDIA driver for the installed kernels, and the first Ansible run loads ZFS in the running one.
+
+`sudo` comes with the empty root password. `python3` (module interpreter) and `python3-apt` (the `apt` module) are what Ansible needs. Everything else, including the extra Debian components, ZFS, the NVIDIA driver and Incus, comes from Ansible. On the admin workstation, install `sops` from <https://github.com/getsops/sops/releases>.
 
 #### Static IP
 
-The node defaults to DHCP. Give it its fixed address so Ansible can reach it reliably, and so it stays outside the Freebox DHCP pool (`192.168.7.150` - `192.168.7.250`). Find the interface name with `ip -br a`, then write the stanza in `/etc/network/interfaces` for now (the role `network` later moves it to `interfaces.d/lan`):
+The X520 in PCIe slot 3 is `ens3`. Give it the fixed address in `/etc/network/interfaces`, so Ansible can reach it and it stays outside the Freebox DHCP pool (`192.168.7.150` - `192.168.7.250`):
 
 ```sh
-auto <iface>
-iface <iface> inet static
-    address 192.168.7.10/24
+allow-hotplug ens3
+iface ens3 inet static
+    address 192.168.7.11/24
     gateway 192.168.7.1
     dns-nameservers 192.168.7.1
 ```
 
-The mask is `/24` because the Freebox serves a fixed `/24` and is the only router (see `network.md`). Keep `/24`: every `10.x` destination then goes to the gateway or a route. Address is per node, with edge at `192.168.7.10/24` and compute at `192.168.7.11/24`, both using gateway `192.168.7.1`. Compute also routes the `10.10.x.x` container subnets, which hosts reach through a static route (see `network.md`). Apply with `systemctl restart networking` or reboot. The Ansible role `network` takes it over on the first run and moves the stanza to `/etc/network/interfaces.d/lan` (see `network.md`).
+The mask is `/24` because the Freebox serves a fixed `/24` and is the only router (see `network.md`). Apply with `sudo systemctl restart networking` or reboot. The Ansible role `network` takes it over on the first run and moves the stanza to `/etc/network/interfaces.d/lan`.
 
-Convert the root filesystem to BTRFS native RAID1 (one-time, ~minutes on a fresh install):
-
-```sh
-btrfs device add /dev/sdb2 /
-btrfs balance start -dconvert=raid1 -mconvert=raid1 /
-btrfs filesystem usage /   # verify: Data,RAID1 / Metadata,RAID1 / System,RAID1
-```
-
-> Degraded boot note: if one SSD dies later, the system will not mount root automatically. At the GRUB prompt, edit the kernel line and append `rootflags=degraded` to boot on the surviving disk, then replace the drive (`btrfs replace`). This is the accepted tradeoff for checksum self-healing. See `storage.md`.
-
-The `noe` user is created by the Debian installer. If a root password was set during install, `noe` is not in the `sudo` group yet. Add it. It already has its login password.
+#### BTRFS RAID1
 
 ```sh
-usermod -aG sudo noe
+sudo btrfs device add /dev/disk/by-id/ata-SAMSUNG_MZ7LM240HMHQ-00005_<second-serial>-part2 /
+sudo btrfs balance start -dconvert=raid1 -mconvert=raid1 /
+sudo btrfs filesystem usage /   # Data, Metadata and System all RAID1, no single chunks
 ```
 
-Passwordless sudo is set up by the baseline role (`/etc/sudoers.d/noe`), not by hand. So the first Ansible run uses the password you just set: `ansible-playbook site.yml --limit edge -K` (`-K` prompts once for the sudo password). After that run, NOPASSWD is in place and `-K` is no longer needed. SSH is also key-only after the first converge (password auth disabled), so the account is only reachable with the private key.
+> Degraded boot note: if one SSD dies later, the system will not mount root automatically. At the GRUB prompt (iLO console), edit the kernel line and append `rootflags=degraded` to boot on the surviving disk, then replace the drive (`btrfs replace`). This is the accepted tradeoff for checksum self-healing. See `storage.md`.
 
-### 4. Key injection (from admin workstation)
+#### Second ESP
+
+GRUB only goes to the first SSD. Copy it to the second ESP and add a firmware boot entry, so either SSD can boot alone:
+
+```sh
+sudo mkfs.vfat -F 32 /dev/disk/by-id/ata-SAMSUNG_MZ7LM240HMHQ-00005_<second-serial>-part1
+sudo mount /dev/disk/by-id/ata-SAMSUNG_MZ7LM240HMHQ-00005_<second-serial>-part1 /mnt
+sudo cp -a /boot/efi/EFI /mnt/ && sudo umount /mnt
+sudo efibootmgr --create --disk /dev/disk/by-id/ata-SAMSUNG_MZ7LM240HMHQ-00005_<second-serial> --part 1 --label "debian (ssd 2)" --loader '\EFI\debian\shimx64.efi'
+sudo efibootmgr -v                     # two debian entries, one per SSD
+```
+
+A GRUB package update only rewrites the first ESP. Repeat the copy after one until the baseline role keeps both in sync (see `todo.md`).
+
+### 5. Key injection (from admin workstation)
 
 ```sh
 ssh-copy-id -i ~/.ssh/homelab.pub noe@192.168.7.11
 ```
 
-The age key stays on the admin workstation: Ansible decrypts the secrets there and sends only the rendered values (see `secrets.md`). A controller hosted on a node would get its own key, limited to the secrets it needs (see `todo.md`).
+The age key stays on the admin workstation: Ansible decrypts the secrets there and sends only the rendered values (see `secrets.md`).
+
+### 6. First Ansible run
+
+```sh
+make deploy-first LIMIT=compute
+```
+
+It installs the baseline, the network files, monitoring, ZFS and the pools, the NVIDIA driver, Incus with its preseed, and the cooling agent. It asks for the sudo password once and sets up passwordless sudo, so later runs use `make deploy LIMIT=compute`.
+
+### 7. Old ZFS pools
+
+The ZFS role creates the pools when they are missing and never forces anything. If the disks still hold a pool with the same name from an earlier install, the role stops with a message. `zpool create` also refuses disks that belong to another pool. ZFS is installed at that point, so the old pools can be dealt with right away.
+
+To keep a pool, import it (`sudo zpool import <name>`) and the role adopts it. To start empty, destroy the old pools. This erases their data.
+
+```sh
+sudo zpool import                              # lists the old pools and their disks
+sudo zpool import -f <name> && sudo zpool destroy <name>
+```
+
+If `zpool create` still refuses a disk because of an old label, check its serial and clear it with `sudo zpool labelclear -f /dev/disk/by-id/<disk>`. Then run `make deploy LIMIT=compute` again.
+
+### 8. Reboot and check
+
+Reboot once after the first complete run, for the NVIDIA driver and the `ens3` stanza in `interfaces.d/lan`.
+
+Checks after the reboot:
+
+```sh
+sudo btrfs filesystem usage /          # RAID1 everywhere
+sudo snapper list                      # config root exists
+zpool status && zpool get ashift       # fast and bulk ONLINE, ashift 12
+incus list && incus network show incusbr0
+nvidia-smi
+systemctl status ml350-fans-agent smartmontools rasdaemon homelab-edac-check.timer homelab-boot-check.timer
+```
 
 Ansible takes over from here.
 
@@ -100,13 +174,13 @@ Ansible takes over from here.
 - Hostname: `edge`
 - Single drive partitioning on `/dev/nvme0n1`:
   - `nvme0n1p1` 1 GiB ESP (FAT32)
-  - `nvme0n1p2` rest, single BTRFS partition mounted at `/` (subvolumes created by Ansible on first run, same model as Server 1)
+  - `nvme0n1p2` rest, single BTRFS partition mounted at `/` (the installer puts it in the `@rootfs` subvolume)
 - Software selection: same as Server 1 (minimal + SSH server)
 - Console fallback: HDMI + USB keyboard. Built-in WiFi is configured as a network fallback (config TBD).
 
 ### 2. First boot + key injection
 
-Same as Server 1 steps 3 and 4, but skip the RAID1 conversion because this node has a single drive. The host should be reachable at its planned edge IP `192.168.7.10`.
+Same as Server 1 steps 4 and 5, but skip the RAID1 conversion and the second ESP because this node has a single drive. The LAN interface is `enp4s0` and the address `192.168.7.10`.
 
 ---
 

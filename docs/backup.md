@@ -63,7 +63,7 @@ Definition: Massive datasets that can be reacquired from the internet
 Server 1 powers down at night, so "nightly" backups cannot literally run overnight on it.
 
 - Server 1 backup window: in the evening, as the last scheduled job before the nightly shutdown.
-- Fallback: if the evening run was missed, the edge node can WoL-wake Server 1, run the backup, then shut it back down.
+- Fallback: if the evening run was missed, the edge node can power Server 1 on through its iLO (WoL does not work on its NIC, see `network.md`), run the backup, then shut it back down.
 - Server 2 (edge) is 24/7, so its small Tier 1 backup (configs, Authentik dump) can run overnight as usual.
 
 ## Backup Tooling Model

@@ -1,0 +1,3 @@
+#!/bin/sh
+# Called by smartd (-M exec) with SMARTD_* variables set.
+exec /usr/local/sbin/homelab-notify high "${SMARTD_SUBJECT:-SMART problem}" "${SMARTD_FULLMESSAGE:-$SMARTD_MESSAGE}"

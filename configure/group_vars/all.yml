@@ -36,4 +36,17 @@ firewall_open_tcp: [22]
 firewall_open_udp: []
 firewall_allow_tcp: []
 firewall_allow_udp: []
+# Interfaces that may reach the DHCP and DNS server of the host, for example a container bridge served by Incus.
+firewall_dhcp_dns_interfaces: []
 disable_physical_power_button: false
+
+# Extra Debian components on top of main and non-free-firmware, for example contrib for ZFS.
+debian_extra_components: []
+# Origins-Pattern entries added to the Debian defaults of unattended-upgrades.
+unattended_upgrades_extra_origins: []
+# Snapper config for / with snapshots around each apt run. Needs a BTRFS root.
+snapper_root: false
+
+# Notifications. An empty topic keeps alerts in the journal only. ntfy.sh topics are public to anyone who knows the name, so the real topic belongs in SOPS.
+notify_ntfy_url: https://ntfy.sh
+notify_ntfy_topic: ""

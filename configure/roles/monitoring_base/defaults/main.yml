@@ -1,0 +1,12 @@
+---
+# Temperatures in C: logged above info, alerted above crit.
+# SATA and SAS disks. HGST He10 maximum operating is 60 C.
+smartd_temp_info: 50
+smartd_temp_crit: 58
+# NVMe controllers. Warning thresholds of the drives in the lab are 80-84 C.
+smartd_nvme_devices: [/dev/nvme0]
+smartd_nvme_temp_info: 70
+smartd_nvme_temp_crit: 78
+# Checked once after each boot. Empty and false install nothing.
+boot_check_pools: []
+boot_check_nvidia: false

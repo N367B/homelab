@@ -1,0 +1,132 @@
+---
+# OpenZFS from Debian contrib, built with DKMS against the running kernel.
+- name: Install ZFS
+  ansible.builtin.apt:
+    name:
+      - linux-headers-amd64
+      - zfs-dkms
+      - zfsutils-linux
+    state: present
+    update_cache: true
+
+# OpenZFS 2.3 lets the ARC grow to nearly all RAM on Linux. A cap leaves room for the containers, and the ARC gives memory back slowly.
+- name: Cap the ARC size
+  ansible.builtin.copy:
+    dest: /etc/modprobe.d/zfs.conf
+    content: "options zfs zfs_arc_max={{ (zfs_arc_max_gib * 1024 ** 3) | int }}\n"
+    owner: root
+    group: root
+    mode: "0644"
+  when: zfs_arc_max_gib | int > 0
+  notify: Apply the ARC cap
+
+- name: Load the ZFS module
+  community.general.modprobe:
+    name: zfs
+    state: present
+
+- name: List imported pools
+  ansible.builtin.command: zpool list -H -o name
+  register: zfs_imported
+  changed_when: false
+  check_mode: false
+
+# A pool that is not imported may still live on the disks, for example right after an OS reinstall.
+# Creating over it would need -f, which this role never uses. Import it by hand instead.
+- name: List pools that could be imported
+  ansible.builtin.command: zpool import
+  register: zfs_importable
+  changed_when: false
+  check_mode: false
+  failed_when: false
+
+- name: Refuse to create a pool that already exists on the disks
+  ansible.builtin.assert:
+    that: "zfs_importable.stdout is not search('pool: ' ~ item.name ~ '$', multiline=True)"
+    fail_msg: "Pool {{ item.name }} exists on the disks but is not imported. Run 'zpool import {{ item.name }}' after checking it is the right one."
+    quiet: true
+  loop: "{{ zfs_pools }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in zfs_imported.stdout_lines
+
+# Never forced. zpool create stops on its own when a disk holds a filesystem or a member of another pool.
+- name: Create missing pools
+  ansible.builtin.command:
+    cmd: >-
+      zpool create
+      {% for k, v in (item.pool_properties | default({})).items() %}-o {{ k }}={{ v }} {% endfor %}
+      {% for k, v in (item.filesystem_properties | default({})).items() %}-O {{ k }}={{ v }} {% endfor %}
+      {{ item.name }} {{ item.vdev }} {{ item.disks | join(' ') }}
+  loop: "{{ zfs_pools }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: item.name not in zfs_imported.stdout_lines
+
+# Keeps the properties of existing pools in line with the vars. Pool properties like ashift are fixed at creation and left alone.
+# The Debian cron scrubs and trims every pool at 00:24 on a Sunday, when compute is usually off. The systemd timers below
+# catch up after a missed run instead, so the cron is turned off per pool to avoid running both.
+- name: Set pool root dataset properties
+  community.general.zfs:
+    name: "{{ item.name }}"
+    state: present
+    extra_zfs_properties: >-
+      {{ item.filesystem_properties | default({})
+         | combine({'org.debian:periodic-scrub': 'disable', 'org.debian:periodic-trim': 'disable'}) }}
+  loop: "{{ zfs_pools }}"
+  loop_control:
+    label: "{{ item.name }}"
+  # In check mode a missing pool was not created, so there is nothing to read yet.
+  when: not ansible_check_mode or item.name in zfs_imported.stdout_lines
+
+- name: Create datasets
+  community.general.zfs:
+    name: "{{ item.name }}"
+    state: present
+    extra_zfs_properties: "{{ item.properties | default({}) }}"
+  loop: "{{ zfs_datasets }}"
+  loop_control:
+    label: "{{ item.name }}"
+  when: not ansible_check_mode or item.name.split('/')[0] in zfs_imported.stdout_lines
+
+# The packaged timer is persistent, so a scrub missed while compute was off starts at the next boot.
+# Its service pauses the scrub on shutdown and the next run resumes it.
+- name: Enable monthly scrubs
+  ansible.builtin.systemd_service:
+    name: "zfs-scrub-monthly@{{ item.name }}.timer"
+    enabled: true
+    state: started
+  loop: "{{ zfs_pools }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# autotrim skips small frees, so a full TRIM once a month is still recommended on SSD pools.
+- name: Enable monthly TRIM on pools with autotrim
+  ansible.builtin.systemd_service:
+    name: "zfs-trim-monthly@{{ item.name }}.timer"
+    enabled: true
+    state: started
+  loop: "{{ zfs_pools | selectattr('pool_properties.autotrim', 'defined') | selectattr('pool_properties.autotrim', 'equalto', 'on') }}"
+  loop_control:
+    label: "{{ item.name }}"
+
+# ZED has a native ntfy notifier. Without a topic it still logs to the journal.
+- name: Configure ZED notifications
+  ansible.builtin.lineinfile:
+    path: /etc/zfs/zed.d/zed.rc
+    regexp: "^#?{{ item.key }}="
+    line: '{{ item.key }}="{{ item.value }}"'
+  loop:
+    - { key: ZED_NTFY_URL, value: "{{ notify_ntfy_url }}" }
+    - { key: ZED_NTFY_TOPIC, value: "{{ notify_ntfy_topic }}" }
+    - { key: ZED_NOTIFY_VERBOSE, value: "1" }
+  loop_control:
+    label: "{{ item.key }}"
+  when: notify_ntfy_topic | length > 0
+  notify: Restart ZED
+
+- name: Enable ZED
+  ansible.builtin.systemd_service:
+    name: zfs-zed
+    enabled: true
+    state: started

@@ -9,6 +9,10 @@ table inet homelab_filter {
         type filter hook input priority filter; policy drop;
 
         iif "lo" accept
+{% for iface in firewall_dhcp_dns_interfaces | default([]) %}
+        iifname "{{ iface }}" udp dport { 53, 67 } accept
+        iifname "{{ iface }}" tcp dport 53 accept
+{% endfor %}
         ct state established,related accept
         ct state invalid drop
 

@@ -1,0 +1,30 @@
+---
+# Runs on the edge, which is always on and reaches the iLO even when compute is off or hung.
+- name: Install the IML watcher
+  ansible.builtin.copy:
+    src: ilo-iml-watch
+    dest: /usr/local/sbin/ilo-iml-watch
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Render IML watcher units
+  ansible.builtin.template:
+    src: "{{ item }}.j2"
+    dest: "/etc/systemd/system/{{ item }}"
+    owner: root
+    group: root
+    mode: "0644"
+  loop:
+    - ilo-iml-watch.service
+    - ilo-iml-watch.timer
+  register: ilo_watch_units
+
+- name: Enable IML watcher timer
+  ansible.builtin.systemd_service:
+    name: ilo-iml-watch.timer
+    enabled: true
+    state: started
+    daemon_reload: "{{ ilo_watch_units is changed }}"
+  # The unit file is only written for real, so check mode cannot find it on a fresh host.
+  ignore_errors: "{{ ansible_check_mode }}"
